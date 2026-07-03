@@ -55,6 +55,29 @@ api.get('/init', async (c) => {
   }
 });
 
+api.get('/state', async (c) => {
+ const { postId } = context;
+ if (!postId) {
+  return c.json<ErrorResponse>({ status: 'error', message: 'postId is required' }, 400);
+ }
+
+ const roomCounts: Record<string, number> = {};
+ for (const type of ROOM_TYPES) {
+  const val = await redis.get(`roomCount:${postId}:${type}`);
+  roomCounts[type] = val ? parseInt(val) : 0;
+ }
+
+ const petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
+
+ return c.json<VoteResponse>({
+  type: 'vote',
+  postId,
+  roomCounts,
+  petStage,
+  justEvolved: false,
+ });
+});
+
 api.post('/increment', async (c) => {
   const { postId } = context;
   if (!postId) {
