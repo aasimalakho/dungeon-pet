@@ -16,3 +16,14 @@ export type DecrementResponse = {
   postId: string;
   count: number;
 };
+
+export type VoteResponse = {
+  type: 'vote';
+  postId: string;
+  roomCounts: Record<string, number>;
+  petStage: string;
+  justEvolved: boolean;
+};
+
+
+
