@@ -25,5 +25,8 @@ export type VoteResponse = {
   justEvolved: boolean;
 };
 
-
-
+export type StateResponse = {
+  type: 'state';
+  roomCounts: Record<string, number>;
+  petStage: string;
+};
