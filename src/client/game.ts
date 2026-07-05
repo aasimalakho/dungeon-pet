@@ -15,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     // Keep a fixed game resolution but automatically scale it to fit within the available
     // web-view / device while maintaining aspect ratio.
-    mode: Phaser.Scale.RESIZE,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: 1024,
     height: 768,
