@@ -163,7 +163,7 @@ api.post('/vote', async (c) => {
   await redis.set(`petStage:${postId}`, petStage);
  }
 
- const rawFeed = await redis.zRange(feedKey, -5, -1);
+ 
   const recentVotes = trimmedFeed;
 
  return c.json<VoteResponse>({
