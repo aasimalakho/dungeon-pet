@@ -16,6 +16,8 @@ const ROOM_CONFIG: { type: RoomType; label: string; color: string; hex: number }
 const CORRIDOR_Y = 470;
 const ROOM_SPACING = 50;
 const CORRIDOR_START_X = 100;
+const BASE_PET_SCALE = 0.2;
+const LEVEL2_PET_SCALE = 0.32;
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
@@ -30,6 +32,7 @@ export class Game extends Scene {
   corridorContainer: Phaser.GameObjects.Container;
   roomCounts: Record<string, number> = {};
   petStage: PetStage = 'baseline';
+  evolutionLevel: number = 0;
   voting: boolean = false;
   renderedRoomCount: number = 0;
 
@@ -43,7 +46,6 @@ export class Game extends Scene {
 
     this.background = this.add.image(512, 384, 'background').setAlpha(0.1);
 
-    // Simple parallax strip behind the corridor
     this.parallaxLayer = this.add.tileSprite(512, CORRIDOR_Y, 1024, 120, 'background');
     this.parallaxLayer.setAlpha(0.08);
 
@@ -65,7 +67,6 @@ export class Game extends Scene {
       })
       .setOrigin(0.5);
 
-    // Recent votes feed
     for (let i = 0; i < 5; i++) {
       const feedLine = this.add
         .text(512, 130 + i * 20, '', {
@@ -77,11 +78,11 @@ export class Game extends Scene {
       this.feedTexts.push(feedLine);
     }
 
-    // Container that holds the corridor rooms + pet, so we can scroll it as a unit
     this.corridorContainer = this.add.container(0, 0);
 
-    // Pet sprite starts at the corridor's starting position
-    this.petSprite = this.add.image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline').setScale(0.2);
+    this.petSprite = this.add
+      .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
+      .setScale(BASE_PET_SCALE);
     this.corridorContainer.add(this.petSprite);
 
     ROOM_CONFIG.forEach((room, i) => {
@@ -122,7 +123,11 @@ export class Game extends Scene {
       const data = (await response.json()) as VoteResponse;
       this.roomCounts = data.roomCounts;
       this.petStage = data.petStage as PetStage;
+      this.evolutionLevel = data.evolutionLevel;
       this.petSprite.setTexture(`pet-${this.petStage}`);
+      if (this.evolutionLevel >= 2) {
+        this.petSprite.setScale(LEVEL2_PET_SCALE);
+      }
       this.refreshDisplay();
       this.updateFeed(data.recentVotes);
       this.renderCorridor(data.rooms);
@@ -146,15 +151,21 @@ export class Game extends Scene {
       if (!response.ok) throw new Error(`API error: ${response.status}`);
 
       const data = (await response.json()) as VoteResponse;
+      const previousLevel = this.evolutionLevel;
+
       this.roomCounts = data.roomCounts;
       this.petStage = data.petStage as PetStage;
+      this.evolutionLevel = data.evolutionLevel;
       this.refreshDisplay();
       this.updateFeed(data.recentVotes);
       this.renderCorridor(data.rooms);
 
       if (data.justEvolved) {
         this.statusText.setText(`The creature evolved into ${data.petStage}!`);
-        this.playEvolutionEffect();
+        this.playEvolutionEffect(false);
+      } else if (previousLevel < 2 && this.evolutionLevel >= 2) {
+        this.statusText.setText(`The creature reached its Ancient form!`);
+        this.playEvolutionEffect(true);
       } else {
         this.statusText.setText(`Vote counted for ${roomType}!`);
       }
@@ -167,7 +178,6 @@ export class Game extends Scene {
   }
 
   renderCorridor(rooms: { type: string; dayPicked: number }[]) {
-    // Only add new rooms since last render — avoids redrawing everything each time
     const newRooms = rooms.slice(this.renderedRoomCount);
     if (newRooms.length === 0) return;
 
@@ -184,7 +194,6 @@ export class Game extends Scene {
 
     this.renderedRoomCount = rooms.length;
 
-    // Move the pet to the newest room position
     const newestX = CORRIDOR_START_X + (rooms.length - 1) * ROOM_SPACING;
     this.tweens.add({
       targets: this.petSprite,
@@ -193,32 +202,36 @@ export class Game extends Scene {
       ease: 'Cubic.easeOut',
     });
 
-    // Bring pet to front so it renders above room icons
     this.corridorContainer.bringToTop(this.petSprite);
   }
 
-  playEvolutionEffect() {
+  playEvolutionEffect(isLevel2: boolean) {
     const newTexture = `pet-${this.petStage}`;
+    const targetScale = isLevel2 ? LEVEL2_PET_SCALE : BASE_PET_SCALE;
+    const squashScaleX = isLevel2 ? 0.05 : 0.03;
+    const squashScaleY = isLevel2 ? 0.4 : 0.25;
+    const popScaleX = targetScale * 1.1;
+    const popScaleY = targetScale * 0.75;
 
     this.tweens.add({
       targets: this.petSprite,
-      scaleX: 0.03,
-      scaleY: 0.25,
+      scaleX: squashScaleX,
+      scaleY: squashScaleY,
       duration: 150,
       ease: 'Cubic.easeIn',
       onComplete: () => {
         this.petSprite.setTexture(newTexture);
         this.tweens.add({
           targets: this.petSprite,
-          scaleX: 0.22,
-          scaleY: 0.15,
+          scaleX: popScaleX,
+          scaleY: popScaleY,
           duration: 150,
           ease: 'Cubic.easeOut',
           onComplete: () => {
             this.tweens.add({
               targets: this.petSprite,
-              scaleX: 0.2,
-              scaleY: 0.2,
+              scaleX: targetScale,
+              scaleY: targetScale,
               duration: 150,
               ease: 'Bounce.easeOut',
             });
@@ -227,17 +240,23 @@ export class Game extends Scene {
       },
     });
 
-    for (let i = 0; i < 16; i++) {
-      const angle = (i / 16) * Math.PI * 2;
-      const particle = this.add.circle(this.petSprite.x, CORRIDOR_Y, 5, 0xffffff);
-      const distance = 50 + Math.random() * 30;
+    const particleCount = isLevel2 ? 28 : 16;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const particle = this.add.circle(
+        this.petSprite.x,
+        CORRIDOR_Y,
+        isLevel2 ? 7 : 5,
+        isLevel2 ? 0xffd700 : 0xffffff
+      );
+      const distance = (isLevel2 ? 70 : 50) + Math.random() * 30;
       this.tweens.add({
         targets: particle,
         x: this.petSprite.x + Math.cos(angle) * distance,
         y: CORRIDOR_Y + Math.sin(angle) * distance,
         alpha: 0,
         scale: 0,
-        duration: 600,
+        duration: isLevel2 ? 800 : 600,
         ease: 'Cubic.easeOut',
         onComplete: () => particle.destroy(),
       });
@@ -245,7 +264,8 @@ export class Game extends Scene {
   }
 
   refreshDisplay() {
-    this.petStageText.setText(`Creature: ${this.petStage}`);
+    const prefix = this.evolutionLevel >= 2 ? 'Ancient ' : '';
+    this.petStageText.setText(`Creature: ${prefix}${this.petStage}`);
 
     ROOM_CONFIG.forEach((room) => {
       const count = this.roomCounts[room.type] ?? 0;
