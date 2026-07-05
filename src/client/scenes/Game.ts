@@ -79,6 +79,8 @@ export class Game extends Scene {
     }
 
     this.corridorContainer = this.add.container(0, 0);
+    this.cameras.main.startFollow(this.petSprite, true, 0.1, 0.1);
+    this.cameras.main.setBounds(0, 0, 999999, 768);
 
     this.petSprite = this.add
       .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
