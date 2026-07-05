@@ -23,6 +23,7 @@ export type VoteResponse = {
   roomCounts: Record<string, number>;
   petStage: string;
   justEvolved: boolean;
+  recentVotes: { username: string; roomType: string }[];
 };
 
 export type StateResponse = {
