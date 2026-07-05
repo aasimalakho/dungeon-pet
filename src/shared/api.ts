@@ -1,18 +1,20 @@
+import type { DungeonRoom } from './types';
+
 export type InitResponse = {
-  type: "init";
+  type: 'init';
   postId: string;
   count: number;
   username: string;
 };
 
 export type IncrementResponse = {
-  type: "increment";
+  type: 'increment';
   postId: string;
   count: number;
 };
 
 export type DecrementResponse = {
-  type: "decrement";
+  type: 'decrement';
   postId: string;
   count: number;
 };
@@ -24,10 +26,5 @@ export type VoteResponse = {
   petStage: string;
   justEvolved: boolean;
   recentVotes: { username: string; roomType: string }[];
-};
-
-export type StateResponse = {
-  type: 'state';
-  roomCounts: Record<string, number>;
-  petStage: string;
+  rooms: DungeonRoom[];
 };
