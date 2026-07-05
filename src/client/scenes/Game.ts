@@ -21,6 +21,7 @@ export class Game extends Scene {
   statusText: Phaser.GameObjects.Text;
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
   voteButtons: Phaser.GameObjects.Text[] = [];
+  feedTexts: Phaser.GameObjects.Text[] = [];
   roomCounts: Record<string, number> = {};
   petStage: PetStage = 'baseline';
   voting: boolean = false;
@@ -35,7 +36,6 @@ export class Game extends Scene {
 
     this.background = this.add.image(512, 384, 'background').setAlpha(0.15);
 
-    // Pet sprite — sits above the title, this is what swaps on evolution
     this.petSprite = this.add.image(512, 210, 'pet-baseline').setScale(0.35);
 
     this.petStageText = this.add
@@ -56,8 +56,20 @@ export class Game extends Scene {
       })
       .setOrigin(0.5);
 
+    // Recent votes feed
+    for (let i = 0; i < 5; i++) {
+      const feedLine = this.add
+        .text(512, 410 + i * 22, '', {
+          fontFamily: 'Arial',
+          fontSize: 15,
+          color: '#888888',
+        })
+        .setOrigin(0.5);
+      this.feedTexts.push(feedLine);
+    }
+
     ROOM_CONFIG.forEach((room, i) => {
-      const y = 440 + i * 70;
+      const y = 540 + i * 70;
 
       const countText = this.add
         .text(300, y, `${room.label}: 0`, {
@@ -96,6 +108,7 @@ export class Game extends Scene {
       this.petStage = data.petStage as PetStage;
       this.petSprite.setTexture(`pet-${this.petStage}`);
       this.refreshDisplay();
+      this.updateFeed(data.recentVotes);
     } catch (error) {
       console.error('Failed to load game state:', error);
       this.statusText.setText('Failed to load — try refreshing.');
@@ -119,6 +132,7 @@ export class Game extends Scene {
       this.roomCounts = data.roomCounts;
       this.petStage = data.petStage as PetStage;
       this.refreshDisplay();
+      this.updateFeed(data.recentVotes);
 
       if (data.justEvolved) {
         this.statusText.setText(`The creature evolved into ${data.petStage}!`);
@@ -137,7 +151,6 @@ export class Game extends Scene {
   playEvolutionEffect() {
     const newTexture = `pet-${this.petStage}`;
 
-    // Squash down, swap texture, pop back up
     this.tweens.add({
       targets: this.petSprite,
       scaleX: 0.05,
@@ -165,7 +178,6 @@ export class Game extends Scene {
       },
     });
 
-    // Simple particle burst using colored circles (no extra asset needed)
     for (let i = 0; i < 16; i++) {
       const angle = (i / 16) * Math.PI * 2;
       const particle = this.add.circle(512, 210, 6, 0xffffff);
@@ -194,4 +206,15 @@ export class Game extends Scene {
       }
     });
   }
-}
+
+  updateFeed(recentVotes: { username: string; roomType: string }[]) {
+    this.feedTexts.forEach((text, i) => {
+      const vote = recentVotes[i];
+      if (vote) {
+        text.setText(`u/${vote.username} voted ${vote.roomType}`);
+      } else {
+        text.setText('');
+      }
+    });
+  }
+  }
