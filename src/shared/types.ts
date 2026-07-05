@@ -5,6 +5,7 @@ export const ROOM_TYPES: RoomType[] = ['fire', 'water', 'trap', 'treasure', 'cha
 
 // How many picks of a room type are needed to trigger that evolution
 export const EVOLUTION_THRESHOLD = 3;
+export const EVOLUTION_THRESHOLD_2 = 8;
 
 // The pet's possible evolution stages
 export type PetStage = 'baseline' | 'fire' | 'water' | 'trap' | 'treasure' | 'chaos';

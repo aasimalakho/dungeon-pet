@@ -24,6 +24,7 @@ export type VoteResponse = {
   postId: string;
   roomCounts: Record<string, number>;
   petStage: string;
+  evolutionLevel: number;
   justEvolved: boolean;
   recentVotes: { username: string; roomType: string }[];
   rooms: DungeonRoom[];
