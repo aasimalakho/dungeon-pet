@@ -3,6 +3,7 @@ import * as Phaser from 'phaser';
 import { VoteResponse } from '../../shared/api';
 
 type RoomType = 'fire' | 'water' | 'trap' | 'treasure' | 'chaos';
+type PetStage = RoomType | 'baseline';
 
 const ROOM_CONFIG: { type: RoomType; label: string; color: string }[] = [
   { type: 'fire', label: '🔥 Fire', color: '#ff5533' },
@@ -15,12 +16,13 @@ const ROOM_CONFIG: { type: RoomType; label: string; color: string }[] = [
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   background: Phaser.GameObjects.Image;
+  petSprite: Phaser.GameObjects.Image;
   petStageText: Phaser.GameObjects.Text;
   statusText: Phaser.GameObjects.Text;
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
   voteButtons: Phaser.GameObjects.Text[] = [];
   roomCounts: Record<string, number> = {};
-  petStage: string = 'baseline';
+  petStage: PetStage = 'baseline';
   voting: boolean = false;
 
   constructor() {
@@ -33,31 +35,34 @@ export class Game extends Scene {
 
     this.background = this.add.image(512, 384, 'background').setAlpha(0.15);
 
+    // Pet sprite — sits above the title, this is what swaps on evolution
+    this.petSprite = this.add.image(512, 210, 'pet-baseline').setScale(0.35);
+
     this.petStageText = this.add
-      .text(512, 120, 'Creature: baseline', {
+      .text(512, 340, 'Creature: baseline', {
         fontFamily: 'Arial Black',
-        fontSize: 40,
+        fontSize: 32,
         color: '#ffffff',
         stroke: '#000000',
-        strokeThickness: 8,
+        strokeThickness: 6,
       })
       .setOrigin(0.5);
 
     this.statusText = this.add
-      .text(512, 180, 'Vote for a room to build the dungeon!', {
+      .text(512, 380, 'Vote for a room to build the dungeon!', {
         fontFamily: 'Arial',
-        fontSize: 22,
+        fontSize: 20,
         color: '#cccccc',
       })
       .setOrigin(0.5);
 
     ROOM_CONFIG.forEach((room, i) => {
-      const y = 260 + i * 80;
+      const y = 440 + i * 70;
 
       const countText = this.add
         .text(300, y, `${room.label}: 0`, {
           fontFamily: 'Arial Black',
-          fontSize: 28,
+          fontSize: 24,
           color: room.color,
         })
         .setOrigin(0, 0.5);
@@ -66,10 +71,10 @@ export class Game extends Scene {
       const button = this.add
         .text(750, y, 'Vote', {
           fontFamily: 'Arial Black',
-          fontSize: 28,
+          fontSize: 24,
           color: '#ffffff',
           backgroundColor: '#333333',
-          padding: { x: 20, y: 10 },
+          padding: { x: 18, y: 8 },
         })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
@@ -88,7 +93,8 @@ export class Game extends Scene {
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       const data = (await response.json()) as VoteResponse;
       this.roomCounts = data.roomCounts;
-      this.petStage = data.petStage;
+      this.petStage = data.petStage as PetStage;
+      this.petSprite.setTexture(`pet-${this.petStage}`);
       this.refreshDisplay();
     } catch (error) {
       console.error('Failed to load game state:', error);
@@ -111,11 +117,12 @@ export class Game extends Scene {
 
       const data = (await response.json()) as VoteResponse;
       this.roomCounts = data.roomCounts;
-      this.petStage = data.petStage;
+      this.petStage = data.petStage as PetStage;
       this.refreshDisplay();
 
       if (data.justEvolved) {
         this.statusText.setText(`The creature evolved into ${data.petStage}!`);
+        this.playEvolutionEffect();
       } else {
         this.statusText.setText(`Vote counted for ${roomType}!`);
       }
@@ -124,6 +131,55 @@ export class Game extends Scene {
       this.statusText.setText('Vote failed — try again.');
     } finally {
       this.voting = false;
+    }
+  }
+
+  playEvolutionEffect() {
+    const newTexture = `pet-${this.petStage}`;
+
+    // Squash down, swap texture, pop back up
+    this.tweens.add({
+      targets: this.petSprite,
+      scaleX: 0.05,
+      scaleY: 0.45,
+      duration: 150,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        this.petSprite.setTexture(newTexture);
+        this.tweens.add({
+          targets: this.petSprite,
+          scaleX: 0.4,
+          scaleY: 0.3,
+          duration: 150,
+          ease: 'Cubic.easeOut',
+          onComplete: () => {
+            this.tweens.add({
+              targets: this.petSprite,
+              scaleX: 0.35,
+              scaleY: 0.35,
+              duration: 150,
+              ease: 'Bounce.easeOut',
+            });
+          },
+        });
+      },
+    });
+
+    // Simple particle burst using colored circles (no extra asset needed)
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const particle = this.add.circle(512, 210, 6, 0xffffff);
+      const distance = 80 + Math.random() * 40;
+      this.tweens.add({
+        targets: particle,
+        x: 512 + Math.cos(angle) * distance,
+        y: 210 + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0,
+        duration: 600,
+        ease: 'Cubic.easeOut',
+        onComplete: () => particle.destroy(),
+      });
     }
   }
 
