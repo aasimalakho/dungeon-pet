@@ -7,7 +7,12 @@ import type {
   VoteResponse,
 } from '../../shared/api';
 
-import { ROOM_TYPES, EVOLUTION_THRESHOLD, type RoomType } from '../../shared/types';
+import {
+  ROOM_TYPES,
+  EVOLUTION_THRESHOLD,
+  EVOLUTION_THRESHOLD_2,
+  type RoomType,
+} from '../../shared/types';
 
 type ErrorResponse = {
   status: 'error';
@@ -69,6 +74,13 @@ api.get('/state', async (c) => {
 
   const petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
 
+  const evolutionLevel =
+    petStage !== 'baseline' && (roomCounts[petStage as RoomType] ?? 0) >= EVOLUTION_THRESHOLD_2
+      ? 2
+      : petStage !== 'baseline'
+        ? 1
+        : 0;
+
   const feedKey = `voteFeed:${postId}`;
   const rawFeed = await redis.get(feedKey);
   const recentVotes: { username: string; roomType: string }[] = rawFeed ? JSON.parse(rawFeed) : [];
@@ -82,6 +94,7 @@ api.get('/state', async (c) => {
     postId,
     roomCounts,
     petStage,
+    evolutionLevel,
     justEvolved: false,
     recentVotes,
     rooms,
@@ -175,6 +188,13 @@ api.post('/vote', async (c) => {
     await redis.set(`petStage:${postId}`, petStage);
   }
 
+  const evolutionLevel =
+    petStage !== 'baseline' && (roomCounts[petStage as RoomType] ?? 0) >= EVOLUTION_THRESHOLD_2
+      ? 2
+      : petStage !== 'baseline'
+        ? 1
+        : 0;
+
   const recentVotes = trimmedFeed;
 
   return c.json<VoteResponse>({
@@ -182,6 +202,7 @@ api.post('/vote', async (c) => {
     postId,
     roomCounts,
     petStage,
+    evolutionLevel,
     justEvolved,
     recentVotes,
     rooms,
