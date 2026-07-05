@@ -56,30 +56,36 @@ api.get('/init', async (c) => {
 });
 
 api.get('/state', async (c) => {
- const { postId } = context;
- if (!postId) {
-  return c.json<ErrorResponse>({ status: 'error', message: 'postId is required' }, 400);
- }
+  const { postId } = context;
+  if (!postId) {
+    return c.json<ErrorResponse>({ status: 'error', message: 'postId is required' }, 400);
+  }
 
- const roomCounts: Record<string, number> = {};
- for (const type of ROOM_TYPES) {
-  const val = await redis.get(`roomCount:${postId}:${type}`);
-  roomCounts[type] = val ? parseInt(val) : 0;
- }
+  const roomCounts: Record<string, number> = {};
+  for (const type of ROOM_TYPES) {
+    const val = await redis.get(`roomCount:${postId}:${type}`);
+    roomCounts[type] = val ? parseInt(val) : 0;
+  }
 
- const petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
- const feedKey = `voteFeed:${postId}`;
+  const petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
+
+  const feedKey = `voteFeed:${postId}`;
   const rawFeed = await redis.get(feedKey);
   const recentVotes: { username: string; roomType: string }[] = rawFeed ? JSON.parse(rawFeed) : [];
 
- return c.json<VoteResponse>({
-  type: 'vote',
-  postId,
-  roomCounts,
-  petStage,
-  justEvolved: false,
-  recentVotes,
- });
+  const roomsKey = `rooms:${postId}`;
+  const rawRooms = await redis.get(roomsKey);
+  const rooms: { type: RoomType; dayPicked: number }[] = rawRooms ? JSON.parse(rawRooms) : [];
+
+  return c.json<VoteResponse>({
+    type: 'vote',
+    postId,
+    roomCounts,
+    petStage,
+    justEvolved: false,
+    recentVotes,
+    rooms,
+  });
 });
 
 api.post('/increment', async (c) => {
@@ -123,55 +129,61 @@ api.post('/decrement', async (c) => {
 });
 
 api.post('/vote', async (c) => {
- const { postId } = context;
- if (!postId) {
-  return c.json<ErrorResponse>({ status: 'error', message: 'postId is required' }, 400);
- }
+  const { postId } = context;
+  if (!postId) {
+    return c.json<ErrorResponse>({ status: 'error', message: 'postId is required' }, 400);
+  }
 
- const body = await c.req.json<{ roomType: RoomType }>();
- const { roomType } = body;
+  const body = await c.req.json<{ roomType: RoomType }>();
+  const { roomType } = body;
 
- if (!ROOM_TYPES.includes(roomType)) {
-  return c.json<ErrorResponse>({ status: 'error', message: 'Invalid room type' }, 400);
- }
+  if (!ROOM_TYPES.includes(roomType)) {
+    return c.json<ErrorResponse>({ status: 'error', message: 'Invalid room type' }, 400);
+  }
 
- const key = `roomCount:${postId}:${roomType}`;
- await redis.incrBy(key, 1);
+  const key = `roomCount:${postId}:${roomType}`;
+  await redis.incrBy(key, 1);
 
- const username = (await reddit.getCurrentUsername()) ?? 'anonymous';
+  const username = (await reddit.getCurrentUsername()) ?? 'anonymous';
   const feedKey = `voteFeed:${postId}`;
   const rawFeedBefore = await redis.get(feedKey);
   const feedBefore: { username: string; roomType: string }[] = rawFeedBefore
-   ? JSON.parse(rawFeedBefore)
-   : [];
+    ? JSON.parse(rawFeedBefore)
+    : [];
   feedBefore.unshift({ username, roomType });
   const trimmedFeed = feedBefore.slice(0, 5);
   await redis.set(feedKey, JSON.stringify(trimmedFeed));
 
- const roomCounts: Record<string, number> = {};
- for (const type of ROOM_TYPES) {
-  const val = await redis.get(`roomCount:${postId}:${type}`);
-  roomCounts[type] = val ? parseInt(val) : 0;
- }
+  const roomsKey = `rooms:${postId}`;
+  const rawRooms = await redis.get(roomsKey);
+  const rooms: { type: RoomType; dayPicked: number }[] = rawRooms ? JSON.parse(rawRooms) : [];
+  rooms.push({ type: roomType, dayPicked: rooms.length + 1 });
+  await redis.set(roomsKey, JSON.stringify(rooms));
 
- let petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
- let justEvolved = false;
+  const roomCounts: Record<string, number> = {};
+  for (const type of ROOM_TYPES) {
+    const val = await redis.get(`roomCount:${postId}:${type}`);
+    roomCounts[type] = val ? parseInt(val) : 0;
+  }
 
- if (petStage === 'baseline' && (roomCounts[roomType] ?? 0) >= EVOLUTION_THRESHOLD) {
-  petStage = roomType;
-  justEvolved = true;
-  await redis.set(`petStage:${postId}`, petStage);
- }
+  let petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
+  let justEvolved = false;
 
- 
+  if (petStage === 'baseline' && (roomCounts[roomType] ?? 0) >= EVOLUTION_THRESHOLD) {
+    petStage = roomType;
+    justEvolved = true;
+    await redis.set(`petStage:${postId}`, petStage);
+  }
+
   const recentVotes = trimmedFeed;
 
- return c.json<VoteResponse>({
-  type: 'vote',
-  postId,
-  roomCounts,
-  petStage,
-  justEvolved,
-  recentVotes,
- });
+  return c.json<VoteResponse>({
+    type: 'vote',
+    postId,
+    roomCounts,
+    petStage,
+    justEvolved,
+    recentVotes,
+    rooms,
+  });
 });
