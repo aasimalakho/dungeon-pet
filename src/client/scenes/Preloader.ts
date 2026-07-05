@@ -27,6 +27,12 @@ export class Preloader extends Scene {
     this.load.setPath('../assets');
 
     this.load.image('logo', 'logo.png');
+    this.load.image('pet-baseline', 'pet-baseline.png');
+    this.load.image('pet-fire', 'pet-fire.png');
+    this.load.image('pet-water', 'pet-water.png');
+    this.load.image('pet-trap', 'pet-trap.png');
+    this.load.image('pet-treasure', 'pet-treasure.png');
+    this.load.image('pet-chaos', 'pet-chaos.png');
   }
 
   create() {
