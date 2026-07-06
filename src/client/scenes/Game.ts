@@ -79,13 +79,15 @@ export class Game extends Scene {
     }
 
     this.corridorContainer = this.add.container(0, 0);
-    this.cameras.main.startFollow(this.petSprite, true, 0.1, 0.1);
-    this.cameras.main.setBounds(0, 0, 999999, 768);
 
-    this.petSprite = this.add
-      .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
-      .setScale(BASE_PET_SCALE);
-    this.corridorContainer.add(this.petSprite);
+      this.petSprite = this.add
+        .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
+        .setScale(BASE_PET_SCALE);
+      this.corridorContainer.add(this.petSprite);
+
+      this.cameras.main.startFollow(this.petSprite, true, 0.1, 0.1);
+      this.cameras.main.setBounds(0, 0, 999999, 768);
+
 
     ROOM_CONFIG.forEach((room, i) => {
       const y = 560 + i * 65;
