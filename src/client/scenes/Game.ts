@@ -44,10 +44,10 @@ export class Game extends Scene {
     this.camera = this.cameras.main;
     this.camera.setBackgroundColor(0x1a1a2e);
 
-    this.background = this.add.image(512, 384, 'background').setAlpha(0.1);
+    this.background = this.add.image(512, 384, 'background').setAlpha(0.1).setScrollFactor(0);
 
     this.parallaxLayer = this.add.tileSprite(512, CORRIDOR_Y, 1024, 120, 'background');
-    this.parallaxLayer.setAlpha(0.08);
+    this.parallaxLayer.setAlpha(0.08).setScrollFactor(0.3);
 
     this.petStageText = this.add
       .text(512, 60, 'Creature: baseline', {
@@ -57,7 +57,8 @@ export class Game extends Scene {
         stroke: '#000000',
         strokeThickness: 6,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
     this.statusText = this.add
       .text(512, 100, 'Vote for a room to build the dungeon!', {
@@ -65,7 +66,8 @@ export class Game extends Scene {
         fontSize: 18,
         color: '#cccccc',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
     for (let i = 0; i < 5; i++) {
       const feedLine = this.add
@@ -74,20 +76,20 @@ export class Game extends Scene {
           fontSize: 14,
           color: '#888888',
         })
-        .setOrigin(0.5);
+        .setOrigin(0.5)
+        .setScrollFactor(0);
       this.feedTexts.push(feedLine);
     }
 
     this.corridorContainer = this.add.container(0, 0);
 
-      this.petSprite = this.add
-        .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
-        .setScale(BASE_PET_SCALE);
-      this.corridorContainer.add(this.petSprite);
+    this.petSprite = this.add
+      .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
+      .setScale(BASE_PET_SCALE);
+    this.corridorContainer.add(this.petSprite);
 
-      this.cameras.main.startFollow(this.petSprite, true, 0.1, 0.1);
-      this.cameras.main.setBounds(0, 0, 999999, 768);
-
+    this.cameras.main.startFollow(this.petSprite, true, 0.1, 0.1);
+    this.cameras.main.setBounds(0, 0, 999999, 768);
 
     ROOM_CONFIG.forEach((room, i) => {
       const y = 560 + i * 65;
@@ -98,7 +100,8 @@ export class Game extends Scene {
           fontSize: 22,
           color: room.color,
         })
-        .setOrigin(0, 0.5);
+        .setOrigin(0, 0.5)
+        .setScrollFactor(0);
       this.countTexts[room.type] = countText;
 
       const button = this.add
@@ -110,6 +113,7 @@ export class Game extends Scene {
           padding: { x: 16, y: 6 },
         })
         .setOrigin(0.5)
+        .setScrollFactor(0)
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => button.setStyle({ backgroundColor: '#555555' }))
         .on('pointerout', () => button.setStyle({ backgroundColor: '#333333' }))
