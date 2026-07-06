@@ -5,36 +5,43 @@ import { VoteResponse } from '../../shared/api';
 type RoomType = 'fire' | 'water' | 'trap' | 'treasure' | 'chaos';
 type PetStage = RoomType | 'baseline';
 
-const ROOM_CONFIG: { type: RoomType; label: string; color: string; hex: number }[] = [
-  { type: 'fire', label: '🔥 Fire', color: '#ff5533', hex: 0xff5533 },
-  { type: 'water', label: '💧 Water', color: '#33aaff', hex: 0x33aaff },
-  { type: 'trap', label: '⚠️ Trap', color: '#aaaaaa', hex: 0xaaaaaa },
-  { type: 'treasure', label: '💰 Treasure', color: '#ffd700', hex: 0xffd700 },
-  { type: 'chaos', label: '🌀 Chaos', color: '#cc55ff', hex: 0xcc55ff },
+const ROOM_CONFIG: {
+  type: RoomType;
+  label: string;
+  color: string;
+  hex: number;
+  icon: string;
+}[] = [
+  { type: 'fire', label: '🔥 Fire', color: '#ff5533', hex: 0xff5533, icon: '🔥' },
+  { type: 'water', label: '💧 Water', color: '#33aaff', hex: 0x33aaff, icon: '💧' },
+  { type: 'trap', label: '⚠️ Trap', color: '#aaaaaa', hex: 0xaaaaaa, icon: '⚠️' },
+  { type: 'treasure', label: '💰 Treasure', color: '#ffd700', hex: 0xffd700, icon: '💰' },
+  { type: 'chaos', label: '🌀 Chaos', color: '#cc55ff', hex: 0xcc55ff, icon: '🌀' },
 ];
 
 const CORRIDOR_Y = 470;
-const ROOM_SPACING = 50;
-const CORRIDOR_START_X = 100;
+const ROOM_SPACING = 85;
+const CORRIDOR_START_X = 130;
+const CORRIDOR_WINDOW = 10;
 const BASE_PET_SCALE = 0.2;
 const LEVEL2_PET_SCALE = 0.32;
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   background: Phaser.GameObjects.Image;
-  parallaxLayer: Phaser.GameObjects.TileSprite;
   petSprite: Phaser.GameObjects.Image;
   petStageText: Phaser.GameObjects.Text;
   statusText: Phaser.GameObjects.Text;
+  roomsBuiltText: Phaser.GameObjects.Text;
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
   voteButtons: Phaser.GameObjects.Text[] = [];
   feedTexts: Phaser.GameObjects.Text[] = [];
-  corridorContainer: Phaser.GameObjects.Container;
+  corridorTiles: Phaser.GameObjects.Container[] = [];
   roomCounts: Record<string, number> = {};
   petStage: PetStage = 'baseline';
   evolutionLevel: number = 0;
   voting: boolean = false;
-  renderedRoomCount: number = 0;
+  totalRoomsBuilt: number = 0;
 
   constructor() {
     super('Game');
@@ -44,10 +51,7 @@ export class Game extends Scene {
     this.camera = this.cameras.main;
     this.camera.setBackgroundColor(0x1a1a2e);
 
-    this.background = this.add.image(512, 384, 'background').setAlpha(0.1).setScrollFactor(0);
-
-    this.parallaxLayer = this.add.tileSprite(512, CORRIDOR_Y, 1024, 120, 'background');
-    this.parallaxLayer.setAlpha(0.08).setScrollFactor(0.3);
+    this.background = this.add.image(512, 384, 'background').setAlpha(0.1);
 
     this.petStageText = this.add
       .text(512, 60, 'Creature: baseline', {
@@ -57,8 +61,7 @@ export class Game extends Scene {
         stroke: '#000000',
         strokeThickness: 6,
       })
-      .setOrigin(0.5)
-      .setScrollFactor(0);
+      .setOrigin(0.5);
 
     this.statusText = this.add
       .text(512, 100, 'Vote for a room to build the dungeon!', {
@@ -66,8 +69,7 @@ export class Game extends Scene {
         fontSize: 18,
         color: '#cccccc',
       })
-      .setOrigin(0.5)
-      .setScrollFactor(0);
+      .setOrigin(0.5);
 
     for (let i = 0; i < 5; i++) {
       const feedLine = this.add
@@ -76,23 +78,38 @@ export class Game extends Scene {
           fontSize: 14,
           color: '#888888',
         })
-        .setOrigin(0.5)
-        .setScrollFactor(0);
+        .setOrigin(0.5);
       this.feedTexts.push(feedLine);
     }
 
-    this.corridorContainer = this.add.container(0, 0);
+    // Corridor background strip
+    this.add.rectangle(512, CORRIDOR_Y, 1024, 130, 0x0f1626).setAlpha(0.6);
+
+    this.roomsBuiltText = this.add
+      .text(512, CORRIDOR_Y - 80, 'Rooms built: 0', {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        color: '#888888',
+      })
+      .setOrigin(0.5);
+
+    // Fixed slots for the rolling window — pre-create empty tile containers
+    for (let i = 0; i < CORRIDOR_WINDOW; i++) {
+      const x = CORRIDOR_START_X + i * ROOM_SPACING;
+      const tile = this.add.container(x, CORRIDOR_Y);
+      const bg = this.add
+        .rectangle(0, 0, 60, 60, 0x333333, 0)
+        .setStrokeStyle(2, 0x555555, 0.4);
+      tile.add(bg);
+      this.corridorTiles.push(tile);
+    }
 
     this.petSprite = this.add
       .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
-    this.corridorContainer.add(this.petSprite);
-
-    this.cameras.main.startFollow(this.petSprite, true, 0.1, 0.1);
-    this.cameras.main.setBounds(0, 0, 999999, 768);
 
     ROOM_CONFIG.forEach((room, i) => {
-      const y = 560 + i * 65;
+      const y = 610 + i * 65;
 
       const countText = this.add
         .text(300, y, `${room.label}: 0`, {
@@ -100,8 +117,7 @@ export class Game extends Scene {
           fontSize: 22,
           color: room.color,
         })
-        .setOrigin(0, 0.5)
-        .setScrollFactor(0);
+        .setOrigin(0, 0.5);
       this.countTexts[room.type] = countText;
 
       const button = this.add
@@ -113,7 +129,6 @@ export class Game extends Scene {
           padding: { x: 16, y: 6 },
         })
         .setOrigin(0.5)
-        .setScrollFactor(0)
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => button.setStyle({ backgroundColor: '#555555' }))
         .on('pointerout', () => button.setStyle({ backgroundColor: '#333333' }))
@@ -186,31 +201,46 @@ export class Game extends Scene {
   }
 
   renderCorridor(rooms: { type: string; dayPicked: number }[]) {
-    const newRooms = rooms.slice(this.renderedRoomCount);
-    if (newRooms.length === 0) return;
+    this.totalRoomsBuilt = rooms.length;
+    this.roomsBuiltText.setText(`Rooms built: ${this.totalRoomsBuilt}`);
 
-    newRooms.forEach((room, i) => {
-      const index = this.renderedRoomCount + i;
-      const x = CORRIDOR_START_X + index * ROOM_SPACING;
-      const config = ROOM_CONFIG.find((r) => r.type === room.type);
-      const color = config ? config.hex : 0xffffff;
+    // Only show the most recent CORRIDOR_WINDOW rooms
+    const visibleRooms = rooms.slice(-CORRIDOR_WINDOW);
 
-      const roomIcon = this.add.rectangle(x, CORRIDOR_Y, 36, 36, color, 0.7);
-      roomIcon.setStrokeStyle(2, 0xffffff, 0.5);
-      this.corridorContainer.add(roomIcon);
+    this.corridorTiles.forEach((tile, i) => {
+      tile.removeAll(true);
+      const bg = this.add
+        .rectangle(0, 0, 60, 60, 0x333333, 0)
+        .setStrokeStyle(2, 0x555555, 0.3);
+      tile.add(bg);
+
+      const room = visibleRooms[i];
+      if (room) {
+        const config = ROOM_CONFIG.find((r) => r.type === room.type);
+        const color = config ? config.hex : 0xffffff;
+        const icon = config ? config.icon : '?';
+
+        const roomBg = this.add
+          .rectangle(0, 0, 56, 56, color, 0.25)
+          .setStrokeStyle(2, color, 0.9);
+        const roomIcon = this.add
+          .text(0, 0, icon, { fontSize: 26 })
+          .setOrigin(0.5);
+        tile.add([roomBg, roomIcon]);
+      }
     });
 
-    this.renderedRoomCount = rooms.length;
+    // Pet sits on the last filled slot
+    const lastIndex = Math.min(visibleRooms.length, CORRIDOR_WINDOW) - 1;
+    const targetX =
+      lastIndex >= 0 ? CORRIDOR_START_X + lastIndex * ROOM_SPACING : CORRIDOR_START_X;
 
-    const newestX = CORRIDOR_START_X + (rooms.length - 1) * ROOM_SPACING;
     this.tweens.add({
       targets: this.petSprite,
-      x: newestX,
-      duration: 400,
+      x: targetX,
+      duration: 350,
       ease: 'Cubic.easeOut',
     });
-
-    this.corridorContainer.bringToTop(this.petSprite);
   }
 
   playEvolutionEffect(isLevel2: boolean) {
