@@ -82,7 +82,6 @@ export class Game extends Scene {
       this.feedTexts.push(feedLine);
     }
 
-    // Corridor background strip
     this.add.rectangle(512, CORRIDOR_Y, 1024, 130, 0x0f1626).setAlpha(0.6);
 
     this.roomsBuiltText = this.add
@@ -93,7 +92,6 @@ export class Game extends Scene {
       })
       .setOrigin(0.5);
 
-    // Fixed slots for the rolling window — pre-create empty tile containers
     for (let i = 0; i < CORRIDOR_WINDOW; i++) {
       const x = CORRIDOR_START_X + i * ROOM_SPACING;
       const tile = this.add.container(x, CORRIDOR_Y);
@@ -109,12 +107,12 @@ export class Game extends Scene {
       .setScale(BASE_PET_SCALE);
 
     ROOM_CONFIG.forEach((room, i) => {
-      const y = 610 + i * 65;
+      const y = 585 + i * 42;
 
       const countText = this.add
         .text(300, y, `${room.label}: 0`, {
           fontFamily: 'Arial Black',
-          fontSize: 22,
+          fontSize: 18,
           color: room.color,
         })
         .setOrigin(0, 0.5);
@@ -123,10 +121,10 @@ export class Game extends Scene {
       const button = this.add
         .text(750, y, 'Vote', {
           fontFamily: 'Arial Black',
-          fontSize: 22,
+          fontSize: 18,
           color: '#ffffff',
           backgroundColor: '#333333',
-          padding: { x: 16, y: 6 },
+          padding: { x: 12, y: 5 },
         })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
@@ -204,7 +202,6 @@ export class Game extends Scene {
     this.totalRoomsBuilt = rooms.length;
     this.roomsBuiltText.setText(`Rooms built: ${this.totalRoomsBuilt}`);
 
-    // Only show the most recent CORRIDOR_WINDOW rooms
     const visibleRooms = rooms.slice(-CORRIDOR_WINDOW);
 
     this.corridorTiles.forEach((tile, i) => {
@@ -223,14 +220,11 @@ export class Game extends Scene {
         const roomBg = this.add
           .rectangle(0, 0, 56, 56, color, 0.25)
           .setStrokeStyle(2, color, 0.9);
-        const roomIcon = this.add
-          .text(0, 0, icon, { fontSize: 26 })
-          .setOrigin(0.5);
+        const roomIcon = this.add.text(0, 0, icon, { fontSize: 26 }).setOrigin(0.5);
         tile.add([roomBg, roomIcon]);
       }
     });
 
-    // Pet sits on the last filled slot
     const lastIndex = Math.min(visibleRooms.length, CORRIDOR_WINDOW) - 1;
     const targetX =
       lastIndex >= 0 ? CORRIDOR_START_X + lastIndex * ROOM_SPACING : CORRIDOR_START_X;
@@ -324,4 +318,4 @@ export class Game extends Scene {
       }
     });
   }
-}
+  }
