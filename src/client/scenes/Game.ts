@@ -31,8 +31,8 @@ const CORRIDOR_START_X = CENTER_X - ((CORRIDOR_WINDOW - 1) * ROOM_SPACING) / 2;
 const BASE_PET_SCALE = 0.22;
 const LEVEL2_PET_SCALE = 0.34;
 
-const VOTE_CARD_TOP = 900;
-const VOTE_ROW_SPACING = 92;
+const VOTE_CARD_TOP = 830;
+const VOTE_ROW_SPACING = 76;
 
 function roundedCard(
   scene: Phaser.Scene,
@@ -153,10 +153,10 @@ export class Game extends Scene {
       .image(CORRIDOR_START_X, CORRIDOR_Y + 60, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
 
-    roundedCard(this, CENTER_X, 800, 680, 190, 24);
+    roundedCard(this, CENTER_X, 760, 680, 170, 24);
 
     this.add
-      .text(CENTER_X, 725, '🏆  TOP VOTERS', {
+      .text(CENTER_X, 690, '🏆  TOP VOTERS', {
         fontFamily: 'Arial Black',
         fontSize: 18,
         color: '#ffd23f',
@@ -165,7 +165,7 @@ export class Game extends Scene {
 
     for (let i = 0; i < 5; i++) {
       const line = this.add
-        .text(CENTER_X, 755 + i * 22, '', {
+        .text(CENTER_X, 720 + i * 18, '', {
           fontFamily: 'Arial',
           fontSize: 15,
           color: '#b8b8d8',
@@ -183,7 +183,7 @@ export class Game extends Scene {
       rowCard.lineStyle(2, room.hex, 0.5);
       rowCard.strokeRoundedRect(20, y - 34, 680, 68, 16);
 
-      const iconBg = this.add.circle(75, y, 26, room.hex, 0.18);
+      const iconBg = this.add.circle(75, y, 22, room.hex, 0.18);
       iconBg.setStrokeStyle(2, room.hex, 0.6);
       this.add.text(75, y, room.icon, { fontSize: 24 }).setOrigin(0.5);
 
@@ -196,8 +196,8 @@ export class Game extends Scene {
         .setOrigin(0, 0.5);
       this.countTexts[room.type] = countText;
 
-      const btnW = 130;
-      const btnH = 52;
+      const btnW = 120;
+      const btnH = 46;
       const btnX = 620;
       const btnBg = this.add.graphics();
       btnBg.fillStyle(room.hex, 0.9);
