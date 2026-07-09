@@ -17,8 +17,8 @@ const config: Phaser.Types.Core.GameConfig = {
     // web-view / device while maintaining aspect ratio.
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 1024,
-    height: 768,
+    width: 720,
+    height: 1280,
   },
   scene: [Boot, Preloader, MainMenu, MainGame, GameOver],
 };
