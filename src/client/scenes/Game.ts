@@ -12,36 +12,58 @@ const ROOM_CONFIG: {
   hex: number;
   icon: string;
 }[] = [
-  { type: 'fire', label: '🔥 Fire', color: '#ff5533', hex: 0xff5533, icon: '🔥' },
-  { type: 'water', label: '💧 Water', color: '#33aaff', hex: 0x33aaff, icon: '💧' },
-  { type: 'trap', label: '⚠️ Trap', color: '#aaaaaa', hex: 0xaaaaaa, icon: '⚠️' },
-  { type: 'treasure', label: '💰 Treasure', color: '#ffd700', hex: 0xffd700, icon: '💰' },
-  { type: 'chaos', label: '🌀 Chaos', color: '#cc55ff', hex: 0xcc55ff, icon: '🌀' },
+  { type: 'fire', label: 'Fire', color: '#ff6b4a', hex: 0xff6b4a, icon: '🔥' },
+  { type: 'water', label: 'Water', color: '#4ac3ff', hex: 0x4ac3ff, icon: '💧' },
+  { type: 'trap', label: 'Trap', color: '#b8bcc8', hex: 0xb8bcc8, icon: '⚠️' },
+  { type: 'treasure', label: 'Treasure', color: '#ffd23f', hex: 0xffd23f, icon: '💰' },
+  { type: 'chaos', label: 'Chaos', color: '#c86bff', hex: 0xc86bff, icon: '🌀' },
 ];
 
 const CENTER_X = 360;
-const CORRIDOR_Y = 560;
+const BG_COLOR = 0x0f0f1a;
+const CARD_COLOR = 0x1b1b2e;
+const CARD_BORDER = 0x2e2e48;
+
+const CORRIDOR_Y = 590;
 const ROOM_SPACING = 62;
 const CORRIDOR_WINDOW = 8;
 const CORRIDOR_START_X = CENTER_X - ((CORRIDOR_WINDOW - 1) * ROOM_SPACING) / 2;
 const BASE_PET_SCALE = 0.22;
 const LEVEL2_PET_SCALE = 0.34;
-const VOTE_ROW_START_Y = 940;
-const VOTE_ROW_SPACING = 88;
+
+const VOTE_CARD_TOP = 900;
+const VOTE_ROW_SPACING = 92;
+
+function roundedCard(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius = 20,
+  fillColor = CARD_COLOR,
+  borderColor = CARD_BORDER
+) {
+  const g = scene.add.graphics();
+  g.fillStyle(fillColor, 1);
+  g.fillRoundedRect(x - w / 2, y - h / 2, w, h, radius);
+  g.lineStyle(2, borderColor, 1);
+  g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, radius);
+  return g;
+}
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
-  background: Phaser.GameObjects.Image;
-  parallaxLayer: Phaser.GameObjects.TileSprite;
   petSprite: Phaser.GameObjects.Image;
+  petGlow: Phaser.GameObjects.Arc;
   petStageText: Phaser.GameObjects.Text;
   statusText: Phaser.GameObjects.Text;
   dayText: Phaser.GameObjects.Text;
   roomsBuiltText: Phaser.GameObjects.Text;
-  leaderboardTitle: Phaser.GameObjects.Text;
   leaderboardTexts: Phaser.GameObjects.Text[] = [];
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
-  voteButtons: Phaser.GameObjects.Text[] = [];
+  voteButtonBgs: Phaser.GameObjects.Graphics[] = [];
+  voteButtonZones: Phaser.GameObjects.Zone[] = [];
   feedTexts: Phaser.GameObjects.Text[] = [];
   corridorTiles: Phaser.GameObjects.Container[] = [];
   roomCounts: Record<string, number> = {};
@@ -56,122 +78,147 @@ export class Game extends Scene {
 
   create() {
     this.camera = this.cameras.main;
-    this.camera.setBackgroundColor(0x1a1a2e);
+    this.camera.setBackgroundColor(BG_COLOR);
 
-    this.background = this.add.image(CENTER_X, 640, 'background').setAlpha(0.08);
+    const grad = this.add.graphics();
+    grad.fillGradientStyle(0x1a1a30, 0x1a1a30, 0x0f0f1a, 0x0f0f1a, 1);
+    grad.fillRect(0, 0, 720, 1280);
 
-    this.parallaxLayer = this.add.tileSprite(CENTER_X, CORRIDOR_Y, 720, 160, 'background');
-    this.parallaxLayer.setAlpha(0.07);
+    roundedCard(this, CENTER_X, 150, 680, 260, 24);
 
     this.dayText = this.add
-      .text(CENTER_X, 35, 'Day 1', {
+      .text(CENTER_X, 55, 'DAY 1', {
         fontFamily: 'Arial',
-        fontSize: 16,
-        color: '#666688',
+        fontSize: 15,
+        color: '#7a7aa0',
+        fontStyle: 'bold',
       })
       .setOrigin(0.5);
 
     this.petStageText = this.add
-      .text(CENTER_X, 70, 'Creature: baseline', {
+      .text(CENTER_X, 90, 'Creature: baseline', {
         fontFamily: 'Arial Black',
-        fontSize: 34,
+        fontSize: 30,
         color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 6,
         align: 'center',
-        wordWrap: { width: 680 },
+        wordWrap: { width: 620 },
       })
       .setOrigin(0.5);
 
     this.statusText = this.add
-      .text(CENTER_X, 120, 'Vote for a room to build the dungeon!', {
+      .text(CENTER_X, 130, 'Vote for a room to build the dungeon!', {
         fontFamily: 'Arial',
-        fontSize: 20,
-        color: '#cccccc',
+        fontSize: 18,
+        color: '#9a9ac0',
         align: 'center',
-        wordWrap: { width: 640 },
+        wordWrap: { width: 600 },
       })
       .setOrigin(0.5);
 
     for (let i = 0; i < 5; i++) {
       const feedLine = this.add
-        .text(CENTER_X, 165 + i * 24, '', {
+        .text(CENTER_X, 175 + i * 22, '', {
           fontFamily: 'Arial',
-          fontSize: 16,
-          color: '#888888',
+          fontSize: 14,
+          color: '#5a5a80',
         })
         .setOrigin(0.5);
       this.feedTexts.push(feedLine);
     }
 
-    this.add.rectangle(CENTER_X, CORRIDOR_Y, 720, 160, 0x0f1626).setAlpha(0.6);
+    roundedCard(this, CENTER_X, CORRIDOR_Y, 680, 300, 24);
 
     this.roomsBuiltText = this.add
-      .text(CENTER_X, CORRIDOR_Y - 95, 'Rooms built: 0', {
+      .text(CENTER_X, CORRIDOR_Y - 120, 'ROOMS BUILT: 0', {
         fontFamily: 'Arial',
-        fontSize: 18,
-        color: '#888888',
+        fontSize: 15,
+        color: '#7a7aa0',
+        fontStyle: 'bold',
       })
       .setOrigin(0.5);
 
     for (let i = 0; i < CORRIDOR_WINDOW; i++) {
       const x = CORRIDOR_START_X + i * ROOM_SPACING;
-      const tile = this.add.container(x, CORRIDOR_Y);
-      const bg = this.add.rectangle(0, 0, 52, 52, 0x333333, 0).setStrokeStyle(2, 0x555555, 0.4);
-      tile.add(bg);
+      const tile = this.add.container(x, CORRIDOR_Y - 30);
+      const bgRounded = this.add.graphics();
+      bgRounded.fillStyle(0x2a2a42, 0.6);
+      bgRounded.fillRoundedRect(-25, -25, 50, 50, 10);
+      tile.add(bgRounded);
       this.corridorTiles.push(tile);
     }
 
+    this.petGlow = this.add.circle(CORRIDOR_START_X, CORRIDOR_Y + 60, 30, 0xff6b4a, 0.15);
+
     this.petSprite = this.add
-      .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
+      .image(CORRIDOR_START_X, CORRIDOR_Y + 60, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
 
-    // Leaderboard section
-    this.leaderboardTitle = this.add
-      .text(CENTER_X, 700, '🏆 Top Voters', {
+    roundedCard(this, CENTER_X, 800, 680, 190, 24);
+
+    this.add
+      .text(CENTER_X, 725, '🏆  TOP VOTERS', {
         fontFamily: 'Arial Black',
-        fontSize: 20,
-        color: '#ffd700',
+        fontSize: 18,
+        color: '#ffd23f',
       })
       .setOrigin(0.5);
 
     for (let i = 0; i < 5; i++) {
       const line = this.add
-        .text(CENTER_X, 730 + i * 22, '', {
+        .text(CENTER_X, 755 + i * 22, '', {
           fontFamily: 'Arial',
           fontSize: 15,
-          color: '#aaaaaa',
+          color: '#b8b8d8',
         })
         .setOrigin(0.5);
       this.leaderboardTexts.push(line);
     }
 
     ROOM_CONFIG.forEach((room, i) => {
-      const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
+      const y = VOTE_CARD_TOP + i * VOTE_ROW_SPACING;
+
+      const rowCard = this.add.graphics();
+      rowCard.fillStyle(CARD_COLOR, 1);
+      rowCard.fillRoundedRect(20, y - 34, 680, 68, 16);
+      rowCard.lineStyle(2, room.hex, 0.5);
+      rowCard.strokeRoundedRect(20, y - 34, 680, 68, 16);
+
+      const iconBg = this.add.circle(75, y, 26, room.hex, 0.18);
+      iconBg.setStrokeStyle(2, room.hex, 0.6);
+      this.add.text(75, y, room.icon, { fontSize: 24 }).setOrigin(0.5);
 
       const countText = this.add
-        .text(60, y, `${room.label}: 0`, {
+        .text(115, y, `${room.label}`, {
           fontFamily: 'Arial Black',
-          fontSize: 26,
-          color: room.color,
+          fontSize: 20,
+          color: '#ffffff',
         })
         .setOrigin(0, 0.5);
       this.countTexts[room.type] = countText;
 
-      const button = this.add
-        .text(600, y, 'Vote', {
+      const btnW = 130;
+      const btnH = 52;
+      const btnX = 620;
+      const btnBg = this.add.graphics();
+      btnBg.fillStyle(room.hex, 0.9);
+      btnBg.fillRoundedRect(btnX - btnW / 2, y - btnH / 2, btnW, btnH, 26);
+      this.voteButtonBgs.push(btnBg);
+
+      this.add
+        .text(btnX, y, 'VOTE', {
           fontFamily: 'Arial Black',
-          fontSize: 26,
-          color: '#ffffff',
-          backgroundColor: '#333333',
-          padding: { x: 24, y: 12 },
+          fontSize: 18,
+          color: '#0f0f1a',
         })
-        .setOrigin(0.5)
+        .setOrigin(0.5);
+
+      const zone = this.add
+        .zone(btnX, y, btnW, btnH)
         .setInteractive({ useHandCursor: true })
-        .on('pointerover', () => button.setStyle({ backgroundColor: '#555555' }))
-        .on('pointerout', () => button.setStyle({ backgroundColor: '#333333' }))
+        .on('pointerover', () => btnBg.setAlpha(1))
+        .on('pointerout', () => btnBg.setAlpha(0.9))
         .on('pointerdown', () => this.castVote(room.type));
-      this.voteButtons.push(button);
+      this.voteButtonZones.push(zone);
     });
 
     void this.loadState();
@@ -234,7 +281,11 @@ export class Game extends Scene {
     if (this.evolutionLevel >= 2) {
       this.petSprite.setScale(LEVEL2_PET_SCALE);
     }
-    this.dayText.setText(`Day ${data.dayNumber}`);
+    const config = ROOM_CONFIG.find((r) => r.type === this.petStage);
+    if (config) {
+      this.petGlow.setFillStyle(config.hex, 0.15);
+    }
+    this.dayText.setText(`DAY ${data.dayNumber}`);
     this.refreshDisplay();
     this.updateFeed(data.recentVotes);
     this.renderCorridor(data.rooms);
@@ -243,14 +294,16 @@ export class Game extends Scene {
 
   renderCorridor(rooms: { type: string; dayPicked: number }[]) {
     this.totalRoomsBuilt = rooms.length;
-    this.roomsBuiltText.setText(`Rooms built: ${this.totalRoomsBuilt}`);
+    this.roomsBuiltText.setText(`ROOMS BUILT: ${this.totalRoomsBuilt}`);
 
     const visibleRooms = rooms.slice(-CORRIDOR_WINDOW);
 
     this.corridorTiles.forEach((tile, i) => {
       tile.removeAll(true);
-      const bg = this.add.rectangle(0, 0, 52, 52, 0x333333, 0).setStrokeStyle(2, 0x555555, 0.3);
-      tile.add(bg);
+      const bgRounded = this.add.graphics();
+      bgRounded.fillStyle(0x2a2a42, 0.6);
+      bgRounded.fillRoundedRect(-25, -25, 50, 50, 10);
+      tile.add(bgRounded);
 
       const room = visibleRooms[i];
       if (room) {
@@ -258,8 +311,12 @@ export class Game extends Scene {
         const color = config ? config.hex : 0xffffff;
         const icon = config ? config.icon : '?';
 
-        const roomBg = this.add.rectangle(0, 0, 48, 48, color, 0.25).setStrokeStyle(2, color, 0.9);
-        const roomIcon = this.add.text(0, 0, icon, { fontSize: 22 }).setOrigin(0.5);
+        const roomBg = this.add.graphics();
+        roomBg.fillStyle(color, 0.25);
+        roomBg.fillRoundedRect(-23, -23, 46, 46, 10);
+        roomBg.lineStyle(2, color, 0.8);
+        roomBg.strokeRoundedRect(-23, -23, 46, 46, 10);
+        const roomIcon = this.add.text(0, 0, icon, { fontSize: 20 }).setOrigin(0.5);
         tile.add([roomBg, roomIcon]);
       }
     });
@@ -269,7 +326,7 @@ export class Game extends Scene {
       lastIndex >= 0 ? CORRIDOR_START_X + lastIndex * ROOM_SPACING : CORRIDOR_START_X;
 
     this.tweens.add({
-      targets: this.petSprite,
+      targets: [this.petSprite, this.petGlow],
       x: targetX,
       duration: 350,
       ease: 'Cubic.easeOut',
@@ -277,10 +334,11 @@ export class Game extends Scene {
   }
 
   updateLeaderboard(leaderboard: { username: string; votes: number }[]) {
+    const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
     this.leaderboardTexts.forEach((text, i) => {
       const entry = leaderboard[i];
       if (entry) {
-        text.setText(`${i + 1}. u/${entry.username} — ${entry.votes} votes`);
+        text.setText(`${medals[i]}  u/${entry.username}  —  ${entry.votes} votes`);
       } else {
         text.setText('');
       }
@@ -327,15 +385,15 @@ export class Game extends Scene {
       const angle = (i / particleCount) * Math.PI * 2;
       const particle = this.add.circle(
         this.petSprite.x,
-        CORRIDOR_Y,
+        this.petSprite.y,
         isLevel2 ? 7 : 5,
-        isLevel2 ? 0xffd700 : 0xffffff
+        isLevel2 ? 0xffd23f : 0xffffff
       );
       const distance = (isLevel2 ? 70 : 50) + Math.random() * 30;
       this.tweens.add({
         targets: particle,
         x: this.petSprite.x + Math.cos(angle) * distance,
-        y: CORRIDOR_Y + Math.sin(angle) * distance,
+        y: this.petSprite.y + Math.sin(angle) * distance,
         alpha: 0,
         scale: 0,
         duration: isLevel2 ? 800 : 600,
@@ -353,7 +411,7 @@ export class Game extends Scene {
       const count = this.roomCounts[room.type] ?? 0;
       const text = this.countTexts[room.type];
       if (text) {
-        text.setText(`${room.label}: ${count}`);
+        text.setText(`${room.label}  (${count})`);
       }
     });
   }
@@ -368,4 +426,4 @@ export class Game extends Scene {
       }
     });
   }
-                                     }
+        }
