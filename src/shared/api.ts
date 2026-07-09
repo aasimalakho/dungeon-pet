@@ -19,6 +19,8 @@ export type DecrementResponse = {
   count: number;
 };
 
+export type LeaderboardEntry = { username: string; votes: number };
+
 export type VoteResponse = {
   type: 'vote';
   postId: string;
@@ -26,6 +28,9 @@ export type VoteResponse = {
   petStage: string;
   evolutionLevel: number;
   justEvolved: boolean;
+  sabotaged: boolean;
+  dayNumber: number;
   recentVotes: { username: string; roomType: string }[];
   rooms: DungeonRoom[];
+  leaderboard: LeaderboardEntry[];
 };
