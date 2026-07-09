@@ -26,16 +26,20 @@ const CORRIDOR_WINDOW = 8;
 const CORRIDOR_START_X = CENTER_X - ((CORRIDOR_WINDOW - 1) * ROOM_SPACING) / 2;
 const BASE_PET_SCALE = 0.22;
 const LEVEL2_PET_SCALE = 0.34;
-const VOTE_ROW_START_Y = 780;
-const VOTE_ROW_SPACING = 90;
+const VOTE_ROW_START_Y = 940;
+const VOTE_ROW_SPACING = 88;
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   background: Phaser.GameObjects.Image;
+  parallaxLayer: Phaser.GameObjects.TileSprite;
   petSprite: Phaser.GameObjects.Image;
   petStageText: Phaser.GameObjects.Text;
   statusText: Phaser.GameObjects.Text;
+  dayText: Phaser.GameObjects.Text;
   roomsBuiltText: Phaser.GameObjects.Text;
+  leaderboardTitle: Phaser.GameObjects.Text;
+  leaderboardTexts: Phaser.GameObjects.Text[] = [];
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
   voteButtons: Phaser.GameObjects.Text[] = [];
   feedTexts: Phaser.GameObjects.Text[] = [];
@@ -55,6 +59,17 @@ export class Game extends Scene {
     this.camera.setBackgroundColor(0x1a1a2e);
 
     this.background = this.add.image(CENTER_X, 640, 'background').setAlpha(0.08);
+
+    this.parallaxLayer = this.add.tileSprite(CENTER_X, CORRIDOR_Y, 720, 160, 'background');
+    this.parallaxLayer.setAlpha(0.07);
+
+    this.dayText = this.add
+      .text(CENTER_X, 35, 'Day 1', {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        color: '#666688',
+      })
+      .setOrigin(0.5);
 
     this.petStageText = this.add
       .text(CENTER_X, 70, 'Creature: baseline', {
@@ -102,9 +117,7 @@ export class Game extends Scene {
     for (let i = 0; i < CORRIDOR_WINDOW; i++) {
       const x = CORRIDOR_START_X + i * ROOM_SPACING;
       const tile = this.add.container(x, CORRIDOR_Y);
-      const bg = this.add
-        .rectangle(0, 0, 52, 52, 0x333333, 0)
-        .setStrokeStyle(2, 0x555555, 0.4);
+      const bg = this.add.rectangle(0, 0, 52, 52, 0x333333, 0).setStrokeStyle(2, 0x555555, 0.4);
       tile.add(bg);
       this.corridorTiles.push(tile);
     }
@@ -112,6 +125,26 @@ export class Game extends Scene {
     this.petSprite = this.add
       .image(CORRIDOR_START_X, CORRIDOR_Y, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
+
+    // Leaderboard section
+    this.leaderboardTitle = this.add
+      .text(CENTER_X, 700, '🏆 Top Voters', {
+        fontFamily: 'Arial Black',
+        fontSize: 20,
+        color: '#ffd700',
+      })
+      .setOrigin(0.5);
+
+    for (let i = 0; i < 5; i++) {
+      const line = this.add
+        .text(CENTER_X, 730 + i * 22, '', {
+          fontFamily: 'Arial',
+          fontSize: 15,
+          color: '#aaaaaa',
+        })
+        .setOrigin(0.5);
+      this.leaderboardTexts.push(line);
+    }
 
     ROOM_CONFIG.forEach((room, i) => {
       const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
@@ -149,16 +182,7 @@ export class Game extends Scene {
       const response = await fetch('/api/state');
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       const data = (await response.json()) as VoteResponse;
-      this.roomCounts = data.roomCounts;
-      this.petStage = data.petStage as PetStage;
-      this.evolutionLevel = data.evolutionLevel;
-      this.petSprite.setTexture(`pet-${this.petStage}`);
-      if (this.evolutionLevel >= 2) {
-        this.petSprite.setScale(LEVEL2_PET_SCALE);
-      }
-      this.refreshDisplay();
-      this.updateFeed(data.recentVotes);
-      this.renderCorridor(data.rooms);
+      this.applyState(data);
     } catch (error) {
       console.error('Failed to load game state:', error);
       this.statusText.setText('Failed to load — try refreshing.');
@@ -180,18 +204,15 @@ export class Game extends Scene {
 
       const data = (await response.json()) as VoteResponse;
       const previousLevel = this.evolutionLevel;
+      this.applyState(data);
 
-      this.roomCounts = data.roomCounts;
-      this.petStage = data.petStage as PetStage;
-      this.evolutionLevel = data.evolutionLevel;
-      this.refreshDisplay();
-      this.updateFeed(data.recentVotes);
-      this.renderCorridor(data.rooms);
-
-      if (data.justEvolved) {
+      if (data.sabotaged) {
+        this.statusText.setText(`⚡ CHAOS SABOTAGE! Creature became ${data.petStage}!`);
+        this.playEvolutionEffect(false);
+      } else if (data.justEvolved) {
         this.statusText.setText(`The creature evolved into ${data.petStage}!`);
         this.playEvolutionEffect(false);
-      } else if (previousLevel < 2 && this.evolutionLevel >= 2) {
+      } else if (previousLevel < 2 && data.evolutionLevel >= 2) {
         this.statusText.setText(`The creature reached its Ancient form!`);
         this.playEvolutionEffect(true);
       } else {
@@ -205,6 +226,21 @@ export class Game extends Scene {
     }
   }
 
+  applyState(data: VoteResponse) {
+    this.roomCounts = data.roomCounts;
+    this.petStage = data.petStage as PetStage;
+    this.evolutionLevel = data.evolutionLevel;
+    this.petSprite.setTexture(`pet-${this.petStage}`);
+    if (this.evolutionLevel >= 2) {
+      this.petSprite.setScale(LEVEL2_PET_SCALE);
+    }
+    this.dayText.setText(`Day ${data.dayNumber}`);
+    this.refreshDisplay();
+    this.updateFeed(data.recentVotes);
+    this.renderCorridor(data.rooms);
+    this.updateLeaderboard(data.leaderboard);
+  }
+
   renderCorridor(rooms: { type: string; dayPicked: number }[]) {
     this.totalRoomsBuilt = rooms.length;
     this.roomsBuiltText.setText(`Rooms built: ${this.totalRoomsBuilt}`);
@@ -213,9 +249,7 @@ export class Game extends Scene {
 
     this.corridorTiles.forEach((tile, i) => {
       tile.removeAll(true);
-      const bg = this.add
-        .rectangle(0, 0, 52, 52, 0x333333, 0)
-        .setStrokeStyle(2, 0x555555, 0.3);
+      const bg = this.add.rectangle(0, 0, 52, 52, 0x333333, 0).setStrokeStyle(2, 0x555555, 0.3);
       tile.add(bg);
 
       const room = visibleRooms[i];
@@ -224,9 +258,7 @@ export class Game extends Scene {
         const color = config ? config.hex : 0xffffff;
         const icon = config ? config.icon : '?';
 
-        const roomBg = this.add
-          .rectangle(0, 0, 48, 48, color, 0.25)
-          .setStrokeStyle(2, color, 0.9);
+        const roomBg = this.add.rectangle(0, 0, 48, 48, color, 0.25).setStrokeStyle(2, color, 0.9);
         const roomIcon = this.add.text(0, 0, icon, { fontSize: 22 }).setOrigin(0.5);
         tile.add([roomBg, roomIcon]);
       }
@@ -241,6 +273,17 @@ export class Game extends Scene {
       x: targetX,
       duration: 350,
       ease: 'Cubic.easeOut',
+    });
+  }
+
+  updateLeaderboard(leaderboard: { username: string; votes: number }[]) {
+    this.leaderboardTexts.forEach((text, i) => {
+      const entry = leaderboard[i];
+      if (entry) {
+        text.setText(`${i + 1}. u/${entry.username} — ${entry.votes} votes`);
+      } else {
+        text.setText('');
+      }
     });
   }
 
@@ -325,4 +368,4 @@ export class Game extends Scene {
       }
     });
   }
-  }
+                                     }
