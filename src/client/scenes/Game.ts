@@ -19,12 +19,15 @@ const ROOM_CONFIG: {
   { type: 'chaos', label: '🌀 Chaos', color: '#cc55ff', hex: 0xcc55ff, icon: '🌀' },
 ];
 
-const CORRIDOR_Y = 470;
-const ROOM_SPACING = 85;
-const CORRIDOR_START_X = 130;
-const CORRIDOR_WINDOW = 10;
-const BASE_PET_SCALE = 0.2;
-const LEVEL2_PET_SCALE = 0.32;
+const CENTER_X = 360;
+const CORRIDOR_Y = 560;
+const ROOM_SPACING = 62;
+const CORRIDOR_WINDOW = 8;
+const CORRIDOR_START_X = CENTER_X - ((CORRIDOR_WINDOW - 1) * ROOM_SPACING) / 2;
+const BASE_PET_SCALE = 0.22;
+const LEVEL2_PET_SCALE = 0.34;
+const VOTE_ROW_START_Y = 780;
+const VOTE_ROW_SPACING = 90;
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
@@ -51,43 +54,47 @@ export class Game extends Scene {
     this.camera = this.cameras.main;
     this.camera.setBackgroundColor(0x1a1a2e);
 
-    this.background = this.add.image(512, 384, 'background').setAlpha(0.1);
+    this.background = this.add.image(CENTER_X, 640, 'background').setAlpha(0.08);
 
     this.petStageText = this.add
-      .text(512, 60, 'Creature: baseline', {
+      .text(CENTER_X, 70, 'Creature: baseline', {
         fontFamily: 'Arial Black',
-        fontSize: 32,
+        fontSize: 34,
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 6,
+        align: 'center',
+        wordWrap: { width: 680 },
       })
       .setOrigin(0.5);
 
     this.statusText = this.add
-      .text(512, 100, 'Vote for a room to build the dungeon!', {
+      .text(CENTER_X, 120, 'Vote for a room to build the dungeon!', {
         fontFamily: 'Arial',
-        fontSize: 18,
+        fontSize: 20,
         color: '#cccccc',
+        align: 'center',
+        wordWrap: { width: 640 },
       })
       .setOrigin(0.5);
 
     for (let i = 0; i < 5; i++) {
       const feedLine = this.add
-        .text(512, 130 + i * 20, '', {
+        .text(CENTER_X, 165 + i * 24, '', {
           fontFamily: 'Arial',
-          fontSize: 14,
+          fontSize: 16,
           color: '#888888',
         })
         .setOrigin(0.5);
       this.feedTexts.push(feedLine);
     }
 
-    this.add.rectangle(512, CORRIDOR_Y, 1024, 130, 0x0f1626).setAlpha(0.6);
+    this.add.rectangle(CENTER_X, CORRIDOR_Y, 720, 160, 0x0f1626).setAlpha(0.6);
 
     this.roomsBuiltText = this.add
-      .text(512, CORRIDOR_Y - 80, 'Rooms built: 0', {
+      .text(CENTER_X, CORRIDOR_Y - 95, 'Rooms built: 0', {
         fontFamily: 'Arial',
-        fontSize: 16,
+        fontSize: 18,
         color: '#888888',
       })
       .setOrigin(0.5);
@@ -96,7 +103,7 @@ export class Game extends Scene {
       const x = CORRIDOR_START_X + i * ROOM_SPACING;
       const tile = this.add.container(x, CORRIDOR_Y);
       const bg = this.add
-        .rectangle(0, 0, 60, 60, 0x333333, 0)
+        .rectangle(0, 0, 52, 52, 0x333333, 0)
         .setStrokeStyle(2, 0x555555, 0.4);
       tile.add(bg);
       this.corridorTiles.push(tile);
@@ -107,24 +114,24 @@ export class Game extends Scene {
       .setScale(BASE_PET_SCALE);
 
     ROOM_CONFIG.forEach((room, i) => {
-      const y = 585 + i * 42;
+      const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
 
       const countText = this.add
-        .text(300, y, `${room.label}: 0`, {
+        .text(60, y, `${room.label}: 0`, {
           fontFamily: 'Arial Black',
-          fontSize: 18,
+          fontSize: 26,
           color: room.color,
         })
         .setOrigin(0, 0.5);
       this.countTexts[room.type] = countText;
 
       const button = this.add
-        .text(750, y, 'Vote', {
+        .text(600, y, 'Vote', {
           fontFamily: 'Arial Black',
-          fontSize: 18,
+          fontSize: 26,
           color: '#ffffff',
           backgroundColor: '#333333',
-          padding: { x: 12, y: 5 },
+          padding: { x: 24, y: 12 },
         })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
@@ -207,7 +214,7 @@ export class Game extends Scene {
     this.corridorTiles.forEach((tile, i) => {
       tile.removeAll(true);
       const bg = this.add
-        .rectangle(0, 0, 60, 60, 0x333333, 0)
+        .rectangle(0, 0, 52, 52, 0x333333, 0)
         .setStrokeStyle(2, 0x555555, 0.3);
       tile.add(bg);
 
@@ -218,9 +225,9 @@ export class Game extends Scene {
         const icon = config ? config.icon : '?';
 
         const roomBg = this.add
-          .rectangle(0, 0, 56, 56, color, 0.25)
+          .rectangle(0, 0, 48, 48, color, 0.25)
           .setStrokeStyle(2, color, 0.9);
-        const roomIcon = this.add.text(0, 0, icon, { fontSize: 26 }).setOrigin(0.5);
+        const roomIcon = this.add.text(0, 0, icon, { fontSize: 22 }).setOrigin(0.5);
         tile.add([roomBg, roomIcon]);
       }
     });
