@@ -176,12 +176,13 @@ export class Game extends Scene {
 
     ROOM_CONFIG.forEach((room, i) => {
       const y = VOTE_CARD_TOP + i * VOTE_ROW_SPACING;
-
+      const rowHeight = 58;
+      
       const rowCard = this.add.graphics();
       rowCard.fillStyle(CARD_COLOR, 1);
-      rowCard.fillRoundedRect(20, y - 34, 680, 68, 16);
+      rowCard.fillRoundedRect(20, y - rowHeight/2, 680, rowHeight, 16);
       rowCard.lineStyle(2, room.hex, 0.5);
-      rowCard.strokeRoundedRect(20, y - 34, 680, 68, 16);
+      rowCard.strokeRoundedRect(20, y - rowHeight/2, 680, rowHeight, 16);
 
       const iconBg = this.add.circle(75, y, 22, room.hex, 0.18);
       iconBg.setStrokeStyle(2, room.hex, 0.6);
