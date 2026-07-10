@@ -6,24 +6,81 @@ export class Preloader extends Scene {
   }
 
   init() {
-    // We loaded this image in our Boot Scene, so we can display it here
-    this.add.image(512, 384, 'background');
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+    const centerX = w / 2;
+    const centerY = h / 2;
 
-    // A simple progress bar. This is the outline of the bar.
-    this.add.rectangle(512, 384, 468, 32).setStrokeStyle(1, 0xffffff);
+    // Full-canvas dark dungeon gradient background
+    const grad = this.add.graphics();
+    grad.fillGradientStyle(0x1a1a30, 0x1a1a30, 0x0a0a14, 0x0a0a14, 1);
+    grad.fillRect(0, 0, w, h);
 
-    // This is the progress bar itself. It will increase in size from the left based on the % of progress
-    const bar = this.add.rectangle(512 - 230, 384, 4, 28, 0xffffff);
+    // Soft ambient glow behind the title
+    this.add.circle(centerX, centerY - 80, 140, 0x6b4aff, 0.08);
 
-    // Use the 'progress' event emitted by the LoaderPlugin to update the loading bar
+    // Title
+    this.add
+      .text(centerX, centerY - 100, 'DUNGEON PET', {
+        fontFamily: 'Arial Black',
+        fontSize: 42,
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5);
+
+    this.add
+      .text(centerX, centerY - 55, 'A community-built dungeon', {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        color: '#9a9ac0',
+      })
+      .setOrigin(0.5);
+
+    // Small pulsing dungeon icon while loading
+    const icon = this.add.text(centerX, centerY + 10, '🔥', { fontSize: 36 }).setOrigin(0.5);
+    this.tweens.add({
+      targets: icon,
+      scale: 1.2,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Progress bar track (rounded, dark)
+    const barWidth = Math.min(400, w * 0.7);
+    const barHeight = 14;
+    const barX = centerX - barWidth / 2;
+    const barY = centerY + 70;
+
+    const track = this.add.graphics();
+    track.fillStyle(0x1b1b2e, 1);
+    track.fillRoundedRect(barX, barY, barWidth, barHeight, 8);
+    track.lineStyle(2, 0x2e2e48, 1);
+    track.strokeRoundedRect(barX, barY, barWidth, barHeight, 8);
+
+    // Progress bar fill (glowing)
+    const fill = this.add.graphics();
+
+    this.add
+      .text(centerX, barY + 30, 'Loading...', {
+        fontFamily: 'Arial',
+        fontSize: 14,
+        color: '#7a7aa0',
+      })
+      .setOrigin(0.5);
+
     this.load.on('progress', (progress: number) => {
-      // Update the progress bar (our bar is 464px wide, so 100% = 464px)
-      bar.width = 4 + 460 * progress;
+      fill.clear();
+      const fillWidth = Math.max(4, barWidth * progress);
+      fill.fillStyle(0xc86bff, 1);
+      fill.fillRoundedRect(barX, barY, fillWidth, barHeight, 8);
     });
   }
 
   preload() {
-    // Load the assets for the game - Replace with your own assets
     this.load.setPath('../assets');
 
     this.load.image('logo', 'logo.png');
@@ -41,10 +98,6 @@ export class Preloader extends Scene {
   }
 
   create() {
-    // When all the assets have loaded, it's often worth creating global objects here that the rest of the game can use.
-    // For example, you can define global animations here, so we can use them in other scenes.
-
-    // Move to the Game scene directly.
     this.scene.start('Game');
   }
-  }
+}
