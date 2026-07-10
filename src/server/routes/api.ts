@@ -21,6 +21,8 @@ type ErrorResponse = {
   message: string;
 };
 
+type PetStage = RoomType | 'baseline';
+
 export const api = new Hono();
 
 async function getRoomCounts(postId: string): Promise<Record<string, number>> {
@@ -30,6 +32,27 @@ async function getRoomCounts(postId: string): Promise<Record<string, number>> {
     roomCounts[type] = val ? parseInt(val) : 0;
   }
   return roomCounts;
+}
+
+// Single source of truth: the pet's stage is always derived live from vote
+// counts, never stored/locked. Whichever room type past the threshold has
+// the highest count right now IS the current stage.
+function determineStage(roomCounts: Record<string, number>): {
+  stage: PetStage;
+  level: number;
+} {
+  const qualifying = ROOM_TYPES.filter((t) => (roomCounts[t] ?? 0) >= EVOLUTION_THRESHOLD);
+
+  if (qualifying.length === 0) {
+    return { stage: 'baseline', level: 0 };
+  }
+
+  const dominant = qualifying.reduce((best, t) =>
+    (roomCounts[t] ?? 0) > (roomCounts[best] ?? 0) ? t : best
+  );
+
+  const level = (roomCounts[dominant] ?? 0) >= EVOLUTION_THRESHOLD_2 ? 2 : 1;
+  return { stage: dominant, level };
 }
 
 async function getDayNumber(postId: string): Promise<number> {
@@ -100,14 +123,7 @@ api.get('/state', async (c) => {
   }
 
   const roomCounts = await getRoomCounts(postId);
-  const petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
-
-  const evolutionLevel =
-    petStage !== 'baseline' && (roomCounts[petStage as RoomType] ?? 0) >= EVOLUTION_THRESHOLD_2
-      ? 2
-      : petStage !== 'baseline'
-        ? 1
-        : 0;
+  const { stage, level } = determineStage(roomCounts);
 
   const feedKey = `voteFeed:${postId}`;
   const rawFeed = await redis.get(feedKey);
@@ -124,8 +140,8 @@ api.get('/state', async (c) => {
     type: 'vote',
     postId,
     roomCounts,
-    petStage,
-    evolutionLevel,
+    petStage: stage,
+    evolutionLevel: level,
     justEvolved: false,
     sabotaged: false,
     dayNumber,
@@ -166,6 +182,11 @@ api.post('/vote', async (c) => {
     return c.json<ErrorResponse>({ status: 'error', message: 'Invalid room type' }, 400);
   }
 
+  // Snapshot the dominant stage BEFORE this vote, so we can tell if this
+  // vote causes a takeover (used for justEvolved + sabotage + comments).
+  const countsBefore = await getRoomCounts(postId);
+  const { stage: stageBefore } = determineStage(countsBefore);
+
   const key = `roomCount:${postId}:${roomType}`;
   await redis.incrBy(key, 1);
 
@@ -190,42 +211,43 @@ api.post('/vote', async (c) => {
   await addToLeaderboard(postId, username);
 
   const roomCounts = await getRoomCounts(postId);
+  const { stage: naturalStage, level: naturalLevel } = determineStage(roomCounts);
 
-  let petStage = (await redis.get(`petStage:${postId}`)) ?? 'baseline';
-  let justEvolved = false;
+  let finalStage: PetStage = naturalStage;
   let sabotaged = false;
 
-  if (petStage === 'baseline' && (roomCounts[roomType] ?? 0) >= EVOLUTION_THRESHOLD) {
+  // Sabotage only fires on an actual takeover moment: the dominant stage is
+  // about to change to something other than chaos, and chaos has votes.
+  if (naturalStage !== stageBefore && naturalStage !== 'chaos') {
     const chaosCount = roomCounts['chaos'] ?? 0;
-    const sabotageChance = Math.min(0.5, chaosCount * CHAOS_SABOTAGE_STEP);
-    const roll = Math.random();
-
-    if (roomType !== 'chaos' && roll < sabotageChance) {
-      petStage = 'chaos';
-      sabotaged = true;
-    } else {
-      petStage = roomType;
+    if (chaosCount > 0) {
+      const sabotageChance = Math.min(0.5, chaosCount * CHAOS_SABOTAGE_STEP);
+      if (Math.random() < sabotageChance) {
+        finalStage = 'chaos';
+        sabotaged = true;
+      }
     }
+  }
 
-    justEvolved = true;
-    await redis.set(`petStage:${postId}`, petStage);
+  const evolutionLevel =
+    finalStage === 'baseline'
+      ? 0
+      : (roomCounts[finalStage] ?? 0) >= EVOLUTION_THRESHOLD_2
+        ? 2
+        : naturalLevel;
 
+  const justEvolved = finalStage !== stageBefore;
+
+  if (justEvolved) {
     try {
       const commentText = sabotaged
-        ? `⚡ CHAOS SABOTAGE! The dungeon voted for ${roomType}, but chaos energy twisted the outcome. The creature is now **${petStage}**!`
-        : `The creature has evolved into **${petStage}**! Keep voting to push it further.`;
+        ? `⚡ CHAOS SABOTAGE! The dungeon voted for ${roomType}, but chaos energy twisted the outcome. The creature is now **${finalStage}**!`
+        : `The creature has evolved into **${finalStage}**! Keep voting to push it further.`;
       await reddit.submitComment({ id: postId, text: commentText });
     } catch (err) {
       console.error('Failed to post evolution comment:', err);
     }
   }
-
-  const evolutionLevel =
-    petStage !== 'baseline' && (roomCounts[petStage as RoomType] ?? 0) >= EVOLUTION_THRESHOLD_2
-      ? 2
-      : petStage !== 'baseline'
-        ? 1
-        : 0;
 
   const recentVotes = trimmedFeed;
   const leaderboard = await getLeaderboard(postId);
@@ -234,7 +256,7 @@ api.post('/vote', async (c) => {
     type: 'vote',
     postId,
     roomCounts,
-    petStage,
+    petStage: finalStage,
     evolutionLevel,
     justEvolved,
     sabotaged,
