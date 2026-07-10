@@ -8,15 +8,14 @@ type PetStage = RoomType | 'baseline';
 const ROOM_CONFIG: {
   type: RoomType;
   label: string;
-  color: string;
   hex: number;
   icon: string;
 }[] = [
-  { type: 'fire', label: 'Fire', color: '#ff6b4a', hex: 0xff6b4a, icon: '🔥' },
-  { type: 'water', label: 'Water', color: '#4ac3ff', hex: 0x4ac3ff, icon: '💧' },
-  { type: 'trap', label: 'Trap', color: '#b8bcc8', hex: 0xb8bcc8, icon: '⚠️' },
-  { type: 'treasure', label: 'Treasure', color: '#ffd23f', hex: 0xffd23f, icon: '💰' },
-  { type: 'chaos', label: 'Chaos', color: '#c86bff', hex: 0xc86bff, icon: '🌀' },
+  { type: 'fire', label: 'Fire', hex: 0xff6b4a, icon: '🔥' },
+  { type: 'water', label: 'Water', hex: 0x4ac3ff, icon: '💧' },
+  { type: 'trap', label: 'Trap', hex: 0xb8bcc8, icon: '⚠️' },
+  { type: 'treasure', label: 'Treasure', hex: 0xffd23f, icon: '💰' },
+  { type: 'chaos', label: 'Chaos', hex: 0xc86bff, icon: '🌀' },
 ];
 
 const CENTER_X = 360;
@@ -24,15 +23,15 @@ const BG_COLOR = 0x0f0f1a;
 const CARD_COLOR = 0x1b1b2e;
 const CARD_BORDER = 0x2e2e48;
 
-const CORRIDOR_Y = 590;
-const ROOM_SPACING = 62;
-const CORRIDOR_WINDOW = 8;
-const CORRIDOR_START_X = CENTER_X - ((CORRIDOR_WINDOW - 1) * ROOM_SPACING) / 2;
-const BASE_PET_SCALE = 0.22;
-const LEVEL2_PET_SCALE = 0.34;
+const MAP_CENTER_Y = 560;
+const MAP_ROOM_COUNT = 8;
+const MAP_COLS = [-200, -67, 67, 200];
+const MAP_ROW_Y = [-70, 70];
+const BASE_PET_SCALE = 0.2;
+const LEVEL2_PET_SCALE = 0.3;
 
-const VOTE_CARD_TOP = 830;
-const VOTE_ROW_SPACING = 76;
+const VOTE_ROW_START_Y = 1030;
+const VOTE_ROW_SPACING = 46;
 
 function roundedCard(
   scene: Phaser.Scene,
@@ -52,6 +51,15 @@ function roundedCard(
   return g;
 }
 
+function mapSlotPosition(index: number): { x: number; y: number } {
+  const col = index % 4;
+  const rowPair = Math.floor(index / 4);
+  const rowInPair = rowPair % 2;
+  const actualCol = rowInPair === 0 ? col : 3 - col;
+  const y = MAP_CENTER_Y + MAP_ROW_Y[rowPair % 2 === 0 ? 0 : 1];
+  return { x: CENTER_X + MAP_COLS[actualCol], y };
+}
+
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   petSprite: Phaser.GameObjects.Image;
@@ -62,10 +70,10 @@ export class Game extends Scene {
   roomsBuiltText: Phaser.GameObjects.Text;
   leaderboardTexts: Phaser.GameObjects.Text[] = [];
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
-  voteButtonBgs: Phaser.GameObjects.Graphics[] = [];
   voteButtonZones: Phaser.GameObjects.Zone[] = [];
   feedTexts: Phaser.GameObjects.Text[] = [];
-  corridorTiles: Phaser.GameObjects.Container[] = [];
+  mapTiles: Phaser.GameObjects.Container[] = [];
+  pathLines: Phaser.GameObjects.Graphics;
   roomCounts: Record<string, number> = {};
   petStage: PetStage = 'baseline';
   evolutionLevel: number = 0;
@@ -84,21 +92,22 @@ export class Game extends Scene {
     grad.fillGradientStyle(0x1a1a30, 0x1a1a30, 0x0f0f1a, 0x0f0f1a, 1);
     grad.fillRect(0, 0, 720, 1280);
 
-    roundedCard(this, CENTER_X, 150, 680, 260, 24);
+    // ===== HEADER CARD =====
+    roundedCard(this, CENTER_X, 130, 680, 200, 22);
 
     this.dayText = this.add
-      .text(CENTER_X, 55, 'DAY 1', {
+      .text(CENTER_X, 50, 'DAY 1', {
         fontFamily: 'Arial',
-        fontSize: 15,
+        fontSize: 14,
         color: '#7a7aa0',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
 
     this.petStageText = this.add
-      .text(CENTER_X, 90, 'Creature: baseline', {
+      .text(CENTER_X, 80, 'Creature: baseline', {
         fontFamily: 'Arial Black',
-        fontSize: 30,
+        fontSize: 26,
         color: '#ffffff',
         align: 'center',
         wordWrap: { width: 620 },
@@ -106,30 +115,31 @@ export class Game extends Scene {
       .setOrigin(0.5);
 
     this.statusText = this.add
-      .text(CENTER_X, 130, 'Vote for a room to build the dungeon!', {
+      .text(CENTER_X, 113, 'Vote to build the dungeon!', {
         fontFamily: 'Arial',
-        fontSize: 18,
+        fontSize: 16,
         color: '#9a9ac0',
         align: 'center',
         wordWrap: { width: 600 },
       })
       .setOrigin(0.5);
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const feedLine = this.add
-        .text(CENTER_X, 175 + i * 22, '', {
+        .text(CENTER_X, 150 + i * 20, '', {
           fontFamily: 'Arial',
-          fontSize: 14,
+          fontSize: 13,
           color: '#5a5a80',
         })
         .setOrigin(0.5);
       this.feedTexts.push(feedLine);
     }
 
-    roundedCard(this, CENTER_X, CORRIDOR_Y, 680, 300, 24);
+    // ===== DUNGEON MAP CARD =====
+    roundedCard(this, CENTER_X, MAP_CENTER_Y, 680, 560, 26);
 
     this.roomsBuiltText = this.add
-      .text(CENTER_X, CORRIDOR_Y - 120, 'ROOMS BUILT: 0', {
+      .text(CENTER_X, MAP_CENTER_Y - 250, 'DUNGEON MAP  •  ROOMS BUILT: 0', {
         fontFamily: 'Arial',
         fontSize: 15,
         color: '#7a7aa0',
@@ -137,78 +147,80 @@ export class Game extends Scene {
       })
       .setOrigin(0.5);
 
-    for (let i = 0; i < CORRIDOR_WINDOW; i++) {
-      const x = CORRIDOR_START_X + i * ROOM_SPACING;
-      const tile = this.add.container(x, CORRIDOR_Y - 30);
-      const bgRounded = this.add.graphics();
-      bgRounded.fillStyle(0x2a2a42, 0.6);
-      bgRounded.fillRoundedRect(-25, -25, 50, 50, 10);
-      tile.add(bgRounded);
-      this.corridorTiles.push(tile);
+    this.pathLines = this.add.graphics();
+
+    for (let i = 0; i < MAP_ROOM_COUNT; i++) {
+      const pos = mapSlotPosition(i);
+      const tile = this.add.container(pos.x, pos.y);
+      const bg = this.add.graphics();
+      bg.fillStyle(0x252540, 0.7);
+      bg.fillRoundedRect(-32, -32, 64, 64, 14);
+      bg.lineStyle(2, 0x3a3a58, 0.6);
+      bg.strokeRoundedRect(-32, -32, 64, 64, 14);
+      tile.add(bg);
+      this.mapTiles.push(tile);
     }
 
-    this.petGlow = this.add.circle(CORRIDOR_START_X, CORRIDOR_Y + 60, 30, 0xff6b4a, 0.15);
-
+    const startPos = mapSlotPosition(0);
+    this.petGlow = this.add.circle(startPos.x, startPos.y + 90, 34, 0xff6b4a, 0.15);
     this.petSprite = this.add
-      .image(CORRIDOR_START_X, CORRIDOR_Y + 60, 'pet-baseline')
+      .image(startPos.x, startPos.y + 90, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
 
-    roundedCard(this, CENTER_X, 760, 680, 170, 24);
+    // ===== LEADERBOARD CARD =====
+    roundedCard(this, CENTER_X, 900, 680, 130, 20);
 
     this.add
-      .text(CENTER_X, 690, '🏆  TOP VOTERS', {
+      .text(CENTER_X, 850, '🏆  TOP VOTERS', {
         fontFamily: 'Arial Black',
-        fontSize: 18,
+        fontSize: 16,
         color: '#ffd23f',
       })
       .setOrigin(0.5);
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const line = this.add
-        .text(CENTER_X, 720 + i * 18, '', {
+        .text(CENTER_X, 878 + i * 20, '', {
           fontFamily: 'Arial',
-          fontSize: 15,
+          fontSize: 14,
           color: '#b8b8d8',
         })
         .setOrigin(0.5);
       this.leaderboardTexts.push(line);
     }
 
+    // ===== VOTE ROWS =====
     ROOM_CONFIG.forEach((room, i) => {
-      const y = VOTE_CARD_TOP + i * VOTE_ROW_SPACING;
-      const rowHeight = 58;
-      
+      const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
+
       const rowCard = this.add.graphics();
       rowCard.fillStyle(CARD_COLOR, 1);
-      rowCard.fillRoundedRect(20, y - rowHeight/2, 680, rowHeight, 16);
-      rowCard.lineStyle(2, room.hex, 0.5);
-      rowCard.strokeRoundedRect(20, y - rowHeight/2, 680, rowHeight, 16);
+      rowCard.fillRoundedRect(20, y - 20, 680, 40, 12);
+      rowCard.lineStyle(1.5, room.hex, 0.5);
+      rowCard.strokeRoundedRect(20, y - 20, 680, 40, 12);
 
-      const iconBg = this.add.circle(75, y, 22, room.hex, 0.18);
-      iconBg.setStrokeStyle(2, room.hex, 0.6);
-      this.add.text(75, y, room.icon, { fontSize: 24 }).setOrigin(0.5);
+      this.add.text(55, y, room.icon, { fontSize: 18 }).setOrigin(0.5);
 
       const countText = this.add
-        .text(115, y, `${room.label}`, {
+        .text(85, y, `${room.label}`, {
           fontFamily: 'Arial Black',
-          fontSize: 20,
+          fontSize: 15,
           color: '#ffffff',
         })
         .setOrigin(0, 0.5);
       this.countTexts[room.type] = countText;
 
-      const btnW = 120;
-      const btnH = 46;
-      const btnX = 620;
+      const btnW = 90;
+      const btnH = 30;
+      const btnX = 630;
       const btnBg = this.add.graphics();
       btnBg.fillStyle(room.hex, 0.9);
-      btnBg.fillRoundedRect(btnX - btnW / 2, y - btnH / 2, btnW, btnH, 26);
-      this.voteButtonBgs.push(btnBg);
+      btnBg.fillRoundedRect(btnX - btnW / 2, y - btnH / 2, btnW, btnH, 15);
 
       this.add
         .text(btnX, y, 'VOTE', {
           fontFamily: 'Arial Black',
-          fontSize: 18,
+          fontSize: 13,
           color: '#0f0f1a',
         })
         .setOrigin(0.5);
@@ -279,67 +291,92 @@ export class Game extends Scene {
     this.petStage = data.petStage as PetStage;
     this.evolutionLevel = data.evolutionLevel;
     this.petSprite.setTexture(`pet-${this.petStage}`);
-    if (this.evolutionLevel >= 2) {
-      this.petSprite.setScale(LEVEL2_PET_SCALE);
-    }
+    this.petSprite.setScale(this.evolutionLevel >= 2 ? LEVEL2_PET_SCALE : BASE_PET_SCALE);
     const config = ROOM_CONFIG.find((r) => r.type === this.petStage);
-    if (config) {
-      this.petGlow.setFillStyle(config.hex, 0.15);
-    }
+    this.petGlow.setFillStyle(config ? config.hex : 0xffffff, 0.15);
     this.dayText.setText(`DAY ${data.dayNumber}`);
     this.refreshDisplay();
     this.updateFeed(data.recentVotes);
-    this.renderCorridor(data.rooms);
+    this.renderMap(data.rooms);
     this.updateLeaderboard(data.leaderboard);
   }
 
-  renderCorridor(rooms: { type: string; dayPicked: number }[]) {
+  renderMap(rooms: { type: string; dayPicked: number }[]) {
     this.totalRoomsBuilt = rooms.length;
-    this.roomsBuiltText.setText(`ROOMS BUILT: ${this.totalRoomsBuilt}`);
+    this.roomsBuiltText.setText(`DUNGEON MAP  •  ROOMS BUILT: ${this.totalRoomsBuilt}`);
 
-    const visibleRooms = rooms.slice(-CORRIDOR_WINDOW);
+    const visibleRooms = rooms.slice(-MAP_ROOM_COUNT);
 
-    this.corridorTiles.forEach((tile, i) => {
+    this.pathLines.clear();
+    this.pathLines.lineStyle(2, 0x3a3a58, 0.5);
+
+    for (let i = 0; i < visibleRooms.length - 1; i++) {
+      const a = mapSlotPosition(i);
+      const b = mapSlotPosition(i + 1);
+      this.pathLines.lineBetween(a.x, a.y, b.x, b.y);
+    }
+
+    this.mapTiles.forEach((tile, i) => {
       tile.removeAll(true);
-      const bgRounded = this.add.graphics();
-      bgRounded.fillStyle(0x2a2a42, 0.6);
-      bgRounded.fillRoundedRect(-25, -25, 50, 50, 10);
-      tile.add(bgRounded);
+      const bg = this.add.graphics();
+      bg.fillStyle(0x252540, 0.7);
+      bg.fillRoundedRect(-32, -32, 64, 64, 14);
+      bg.lineStyle(2, 0x3a3a58, 0.6);
+      bg.strokeRoundedRect(-32, -32, 64, 64, 14);
+      tile.add(bg);
 
       const room = visibleRooms[i];
       if (room) {
         const config = ROOM_CONFIG.find((r) => r.type === room.type);
         const color = config ? config.hex : 0xffffff;
-        const icon = config ? config.icon : '?';
 
-        const roomBg = this.add.graphics();
-        roomBg.fillStyle(color, 0.25);
-        roomBg.fillRoundedRect(-23, -23, 46, 46, 10);
-        roomBg.lineStyle(2, color, 0.8);
-        roomBg.strokeRoundedRect(-23, -23, 46, 46, 10);
-        const roomIcon = this.add.text(0, 0, icon, { fontSize: 20 }).setOrigin(0.5);
-        tile.add([roomBg, roomIcon]);
+        const glow = this.add.circle(0, 0, 34, color, 0.2);
+        const roomImage = this.add.image(0, 0, `room-${room.type}`).setDisplaySize(56, 56);
+        const border = this.add.graphics();
+        border.lineStyle(2, color, 0.9);
+        border.strokeRoundedRect(-28, -28, 56, 56, 12);
+        tile.add([glow, roomImage, border]);
+
+        if (i === visibleRooms.length - 1) {
+          tile.setScale(0);
+          this.tweens.add({
+            targets: tile,
+            scale: 1,
+            duration: 300,
+            ease: 'Back.easeOut',
+          });
+          const flash = this.add.circle(tile.x, tile.y, 40, 0xffffff, 0.5);
+          this.tweens.add({
+            targets: flash,
+            scale: 2,
+            alpha: 0,
+            duration: 400,
+            ease: 'Cubic.easeOut',
+            onComplete: () => flash.destroy(),
+          });
+        }
       }
     });
 
-    const lastIndex = Math.min(visibleRooms.length, CORRIDOR_WINDOW) - 1;
-    const targetX =
-      lastIndex >= 0 ? CORRIDOR_START_X + lastIndex * ROOM_SPACING : CORRIDOR_START_X;
+    const lastIndex = visibleRooms.length - 1;
+    const targetPos = lastIndex >= 0 ? mapSlotPosition(lastIndex) : mapSlotPosition(0);
+    const targetY = targetPos.y + 90;
 
     this.tweens.add({
       targets: [this.petSprite, this.petGlow],
-      x: targetX,
-      duration: 350,
+      x: targetPos.x,
+      y: targetY,
+      duration: 400,
       ease: 'Cubic.easeOut',
     });
   }
 
   updateLeaderboard(leaderboard: { username: string; votes: number }[]) {
-    const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+    const medals = ['🥇', '🥈', '🥉'];
     this.leaderboardTexts.forEach((text, i) => {
       const entry = leaderboard[i];
       if (entry) {
-        text.setText(`${medals[i]}  u/${entry.username}  —  ${entry.votes} votes`);
+        text.setText(`${medals[i]} u/${entry.username} — ${entry.votes} votes`);
       } else {
         text.setText('');
       }
@@ -350,7 +387,7 @@ export class Game extends Scene {
     const newTexture = `pet-${this.petStage}`;
     const targetScale = isLevel2 ? LEVEL2_PET_SCALE : BASE_PET_SCALE;
     const squashScaleX = isLevel2 ? 0.05 : 0.03;
-    const squashScaleY = isLevel2 ? 0.4 : 0.25;
+    const squashScaleY = isLevel2 ? 0.35 : 0.22;
     const popScaleX = targetScale * 1.1;
     const popScaleY = targetScale * 0.75;
 
@@ -390,7 +427,7 @@ export class Game extends Scene {
         isLevel2 ? 7 : 5,
         isLevel2 ? 0xffd23f : 0xffffff
       );
-      const distance = (isLevel2 ? 70 : 50) + Math.random() * 30;
+      const distance = (isLevel2 ? 60 : 45) + Math.random() * 25;
       this.tweens.add({
         targets: particle,
         x: this.petSprite.x + Math.cos(angle) * distance,
@@ -412,7 +449,7 @@ export class Game extends Scene {
       const count = this.roomCounts[room.type] ?? 0;
       const text = this.countTexts[room.type];
       if (text) {
-        text.setText(`${room.label}  (${count})`);
+        text.setText(`${room.label} (${count})`);
       }
     });
   }
@@ -427,4 +464,4 @@ export class Game extends Scene {
       }
     });
   }
-        }
+  }
