@@ -10,12 +10,13 @@ const ROOM_CONFIG: {
   label: string;
   hex: number;
   icon: string;
+  particleColor: number;
 }[] = [
-  { type: 'fire', label: 'Fire', hex: 0xff6b4a, icon: '🔥' },
-  { type: 'water', label: 'Water', hex: 0x4ac3ff, icon: '💧' },
-  { type: 'trap', label: 'Trap', hex: 0xb8bcc8, icon: '⚠️' },
-  { type: 'treasure', label: 'Treasure', hex: 0xffd23f, icon: '💰' },
-  { type: 'chaos', label: 'Chaos', hex: 0xc86bff, icon: '🌀' },
+  { type: 'fire', label: 'Fire', hex: 0xff6b4a, icon: '🔥', particleColor: 0xff8844 },
+  { type: 'water', label: 'Water', hex: 0x4ac3ff, icon: '💧', particleColor: 0x6fd8ff },
+  { type: 'trap', label: 'Trap', hex: 0xb8bcc8, icon: '⚠️', particleColor: 0xdddddd },
+  { type: 'treasure', label: 'Treasure', hex: 0xffd23f, icon: '💰', particleColor: 0xffe680 },
+  { type: 'chaos', label: 'Chaos', hex: 0xc86bff, icon: '🌀', particleColor: 0xdb9bff },
 ];
 
 const CENTER_X = 360;
@@ -60,8 +61,61 @@ function mapSlotPosition(index: number): { x: number; y: number } {
   return { x: CENTER_X + MAP_COLS[actualCol], y };
 }
 
+// ===== Simple procedural sound (no audio files needed) =====
+class SoundManager {
+  ctx: AudioContext | null = null;
+
+  private ensureContext() {
+    if (!this.ctx) {
+      const AudioCtx =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+    return this.ctx;
+  }
+
+  private playTone(freq: number, duration: number, type: OscillatorType, delay = 0, volume = 0.08) {
+    try {
+      const ctx = this.ensureContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const startTime = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(volume, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    } catch (e) {
+      // Audio not available — fail silently, never block gameplay
+      console.warn('Sound playback unavailable:', e);
+    }
+  }
+
+  playVote() {
+    this.playTone(520, 0.08, 'sine');
+  }
+
+  playEvolution() {
+    this.playTone(440, 0.15, 'triangle', 0);
+    this.playTone(660, 0.15, 'triangle', 0.1);
+    this.playTone(880, 0.25, 'triangle', 0.2);
+  }
+
+  playSabotage() {
+    this.playTone(300, 0.1, 'sawtooth', 0);
+    this.playTone(180, 0.2, 'sawtooth', 0.1);
+  }
+}
+
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
+  sound2: SoundManager = new SoundManager();
   petSprite: Phaser.GameObjects.Image;
   petGlow: Phaser.GameObjects.Arc;
   petStageText: Phaser.GameObjects.Text;
@@ -74,6 +128,7 @@ export class Game extends Scene {
   feedTexts: Phaser.GameObjects.Text[] = [];
   mapTiles: Phaser.GameObjects.Container[] = [];
   pathLines: Phaser.GameObjects.Graphics;
+  activeTileRoomTypes: (RoomType | null)[] = new Array(MAP_ROOM_COUNT).fill(null);
   roomCounts: Record<string, number> = {};
   petStage: PetStage = 'baseline';
   evolutionLevel: number = 0;
@@ -167,6 +222,13 @@ export class Game extends Scene {
       .image(startPos.x, startPos.y + 90, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
 
+    // Ambient particle loop — spawns small themed particles on filled tiles
+    this.time.addEvent({
+      delay: 700,
+      loop: true,
+      callback: () => this.spawnAmbientParticles(),
+    });
+
     // ===== LEADERBOARD CARD =====
     roundedCard(this, CENTER_X, 900, 680, 130, 20);
 
@@ -237,6 +299,33 @@ export class Game extends Scene {
     void this.loadState();
   }
 
+  spawnAmbientParticles() {
+    this.mapTiles.forEach((tile, i) => {
+      const roomType = this.activeTileRoomTypes[i];
+      if (!roomType) return;
+      const config = ROOM_CONFIG.find((r) => r.type === roomType);
+      if (!config) return;
+
+      const particle = this.add.circle(
+        tile.x + (Math.random() - 0.5) * 30,
+        tile.y + 20,
+        Math.random() * 2 + 1.5,
+        config.particleColor,
+        0.7
+      );
+
+      this.tweens.add({
+        targets: particle,
+        y: particle.y - 40 - Math.random() * 20,
+        x: particle.x + (Math.random() - 0.5) * 15,
+        alpha: 0,
+        duration: 1200 + Math.random() * 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    });
+  }
+
   async loadState() {
     try {
       const response = await fetch('/api/state');
@@ -253,6 +342,7 @@ export class Game extends Scene {
     if (this.voting) return;
     this.voting = true;
     this.statusText.setText('Voting...');
+    this.sound2.playVote();
 
     try {
       const response = await fetch('/api/vote', {
@@ -269,12 +359,15 @@ export class Game extends Scene {
       if (data.sabotaged) {
         this.statusText.setText(`⚡ CHAOS SABOTAGE! Creature became ${data.petStage}!`);
         this.playEvolutionEffect(false);
+        this.sound2.playSabotage();
       } else if (data.justEvolved) {
         this.statusText.setText(`The creature evolved into ${data.petStage}!`);
         this.playEvolutionEffect(false);
+        this.sound2.playEvolution();
       } else if (previousLevel < 2 && data.evolutionLevel >= 2) {
         this.statusText.setText(`The creature reached its Ancient form!`);
         this.playEvolutionEffect(true);
+        this.sound2.playEvolution();
       } else {
         this.statusText.setText(`Vote counted for ${roomType}!`);
       }
@@ -316,6 +409,8 @@ export class Game extends Scene {
       this.pathLines.lineBetween(a.x, a.y, b.x, b.y);
     }
 
+    this.activeTileRoomTypes = new Array(MAP_ROOM_COUNT).fill(null);
+
     this.mapTiles.forEach((tile, i) => {
       tile.removeAll(true);
       const bg = this.add.graphics();
@@ -329,6 +424,7 @@ export class Game extends Scene {
       if (room) {
         const config = ROOM_CONFIG.find((r) => r.type === room.type);
         const color = config ? config.hex : 0xffffff;
+        this.activeTileRoomTypes[i] = room.type as RoomType;
 
         const glow = this.add.circle(0, 0, 34, color, 0.2);
         const roomImage = this.add.image(0, 0, `room-${room.type}`).setDisplaySize(56, 56);
