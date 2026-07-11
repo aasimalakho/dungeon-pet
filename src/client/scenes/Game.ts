@@ -130,7 +130,7 @@ export class Game extends Scene {
   petStageText: Phaser.GameObjects.Text;
   statusText: Phaser.GameObjects.Text;
   stakesText: Phaser.GameObjects.Text;
-  chaosRiskText: Phaser.GameObjects.Text;
+  chaosRiskText: Phaser.GameObjects.Text | null = null;
   dayText: Phaser.GameObjects.Text;
   roomsBuiltText: Phaser.GameObjects.Text;
   leaderboardTexts: Phaser.GameObjects.Text[] = [];
@@ -148,7 +148,6 @@ export class Game extends Scene {
   voting: boolean = false;
   votingLocked: boolean = false;
   totalRoomsBuilt: number = 0;
-  idleTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super('Game');
@@ -162,7 +161,6 @@ export class Game extends Scene {
     grad.fillGradientStyle(0x1a1a30, 0x1a1a30, 0x0f0f1a, 0x0f0f1a, 1);
     grad.fillRect(0, 0, 720, 1280);
 
-    // ===== HERO CARD: full pet display with room-themed background =====
     roundedCard(this, CENTER_X, HERO_Y, 680, HERO_H, 24);
 
     this.dayText = this.add
@@ -209,7 +207,7 @@ export class Game extends Scene {
       })
       .setOrigin(0.5);
 
-    for (let i = 0; i < 2; i++) {
+     for (let i = 0; i < 2; i++) {
       const feedLine = this.add
         .text(CENTER_X, HERO_Y + HERO_H / 2 - 18 + i * 18, '', {
           fontFamily: 'Arial',
@@ -222,7 +220,6 @@ export class Game extends Scene {
 
     this.startIdleAnimation();
 
-    // ===== DUNGEON MAP CARD =====
     roundedCard(this, CENTER_X, MAP_Y, 680, MAP_H, 22);
 
     this.roomsBuiltText = this.add
@@ -254,7 +251,6 @@ export class Game extends Scene {
       callback: () => this.spawnAmbientParticles(),
     });
 
-    // ===== LEADERBOARD CARD =====
     roundedCard(this, CENTER_X, 850, 680, 120, 18);
 
     this.add
@@ -276,7 +272,6 @@ export class Game extends Scene {
       this.leaderboardTexts.push(line);
     }
 
-    // ===== VOTE ROWS =====
     ROOM_CONFIG.forEach((room, i) => {
       const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
 
@@ -343,7 +338,6 @@ export class Game extends Scene {
   }
 
   startIdleAnimation() {
-    // Gentle continuous bob
     this.tweens.add({
       targets: this.petSprite,
       y: HERO_Y + 20,
@@ -353,8 +347,7 @@ export class Game extends Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Occasional personality wiggle
-    this.idleTimer = this.time.addEvent({
+    this.time.addEvent({
       delay: 4500,
       loop: true,
       callback: () => {
@@ -511,8 +504,6 @@ export class Game extends Scene {
         .setDisplaySize(660, HERO_H - 20)
         .setAlpha(0.35);
       this.heroBg.setDepth(-1);
-      // Keep it behind the card fill but the card graphics were drawn first,
-      // so re-draw a subtle overlay card border on top for a framed look.
     } else {
       this.heroBg.setTexture(textureKey);
     }
@@ -530,7 +521,8 @@ export class Game extends Scene {
         }
       });
       if (!bestType) return '';
-      const config = ROOM_CONFIG.find((r) => r.type === bestType)!;
+      const config = ROOM_CONFIG.find((r) => r.type === bestType);
+      if (!config) return '';
       const needed = Math.max(0, EVOLUTION_THRESHOLD - bestCount);
       if (needed === 0) return 'The dungeon is about to hatch a creature!';
       return `${needed} more ${config.label} vote${needed > 1 ? 's' : ''} hatches the creature!`;
@@ -538,10 +530,8 @@ export class Game extends Scene {
 
     if (this.evolutionLevel === 1) {
       const config = ROOM_CONFIG.find((r) => r.type === this.petStage);
-      const needed = Math.max(
-        0,
-        EVOLUTION_THRESHOLD_2 - (this.roomCounts[this.petStage] ?? 0)
-      );
+      const currentCount = this.roomCounts[this.petStage] ?? 0;
+      const needed = Math.max(0, EVOLUTION_THRESHOLD_2 - currentCount);
       if (!config) return '';
       if (needed === 0) return 'The creature is ready to reach its Ancient form!';
       return `${needed} more ${config.label} vote${needed > 1 ? 's' : ''} reaches Ancient form!`;
@@ -647,4 +637,90 @@ export class Game extends Scene {
         this.tweens.add({
           targets: this.petSprite,
           scaleX: popScaleX,
-    
+          scaleY: popScaleY,
+          duration: 150,
+          ease: 'Cubic.easeOut',
+          onComplete: () => {
+            this.tweens.add({
+              targets: this.petSprite,
+              scaleX: targetScale,
+              scaleY: targetScale,
+              duration: 150,
+              ease: 'Bounce.easeOut',
+            });
+          },
+        });
+      },
+    });
+
+    const particleCount = isLevel2 ? 28 : 16;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const particle = this.add.circle(
+        this.petSprite.x,
+        this.petSprite.y,
+        isLevel2 ? 8 : 6,
+        isLevel2 ? 0xffd23f : 0xffffff
+      );
+      const distance = (isLevel2 ? 90 : 65) + Math.random() * 35;
+      this.tweens.add({
+        targets: particle,
+        x: this.petSprite.x + Math.cos(angle) * distance,
+        y: this.petSprite.y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0,
+        duration: isLevel2 ? 800 : 600,
+        ease: 'Cubic.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  refreshDisplay() {
+    const prefix = this.evolutionLevel >= 2 ? 'Ancient ' : '';
+    this.petStageText.setText(`Creature: ${prefix}${this.petStage}`);
+    this.stakesText.setText(this.computeStakes());
+
+    if (this.chaosRiskText) {
+      this.chaosRiskText.setText(`Chaos risk: ${this.computeChaosRisk()}%`);
+    }
+
+    ROOM_CONFIG.forEach((room) => {
+      const count = this.roomCounts[room.type] ?? 0;
+      const text = this.countTexts[room.type];
+      if (text) {
+        text.setText(`${room.label} (${count})`);
+      }
+
+      const bar = this.progressBars[room.type];
+      if (bar) {
+        bar.clear();
+        const nextThreshold =
+          count < EVOLUTION_THRESHOLD ? EVOLUTION_THRESHOLD : EVOLUTION_THRESHOLD_2;
+        const prevThreshold = count < EVOLUTION_THRESHOLD ? 0 : EVOLUTION_THRESHOLD;
+        const progress = Math.min(1, (count - prevThreshold) / (nextThreshold - prevThreshold));
+
+        if (count < EVOLUTION_THRESHOLD_2) {
+          const barX = 200;
+          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 10;
+          const barW = 220;
+          bar.fillStyle(0x2a2a42, 1);
+          bar.fillRoundedRect(barX, barY, barW, 5, 3);
+          bar.fillStyle(room.hex, 0.9);
+          bar.fillRoundedRect(barX, barY, barW * progress, 5, 3);
+        }
+      }
+    });
+  }
+
+  updateFeed(recentVotes: { username: string; roomType: string }[]) {
+    this.feedTexts.forEach((text, i) => {
+      const vote = recentVotes[i];
+      if (vote) {
+        text.setText(`u/${vote.username} voted ${vote.roomType}`);
+      } else {
+        text.setText('');
+      }
+    });
+  }
+}
