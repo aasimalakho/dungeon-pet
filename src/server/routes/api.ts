@@ -34,9 +34,6 @@ async function getRoomCounts(postId: string): Promise<Record<string, number>> {
   return roomCounts;
 }
 
-// Single source of truth: the pet's stage is always derived live from vote
-// counts, never stored/locked. Whichever room type past the threshold has
-// the highest count right now IS the current stage.
 function determineStage(roomCounts: Record<string, number>): {
   stage: PetStage;
   level: number;
@@ -64,6 +61,17 @@ async function getDayNumber(postId: string): Promise<number> {
   }
   const elapsedMs = Date.now() - parseInt(startTime);
   return Math.floor(elapsedMs / (24 * 60 * 60 * 1000)) + 1;
+}
+
+async function hasVotedToday(postId: string, username: string, dayNumber: number): Promise<boolean> {
+  const key = `votedDay:${postId}:${username}`;
+  const lastVotedDay = await redis.get(key);
+  return lastVotedDay !== null && parseInt(lastVotedDay) === dayNumber;
+}
+
+async function markVotedToday(postId: string, username: string, dayNumber: number) {
+  const key = `votedDay:${postId}:${username}`;
+  await redis.set(key, dayNumber.toString());
 }
 
 async function getLeaderboard(postId: string): Promise<LeaderboardEntry[]> {
@@ -136,6 +144,9 @@ api.get('/state', async (c) => {
   const dayNumber = await getDayNumber(postId);
   const leaderboard = await getLeaderboard(postId);
 
+  const username = (await reddit.getCurrentUsername()) ?? 'anonymous';
+  const alreadyVotedToday = await hasVotedToday(postId, username, dayNumber);
+
   return c.json<VoteResponse>({
     type: 'vote',
     postId,
@@ -148,6 +159,7 @@ api.get('/state', async (c) => {
     recentVotes,
     rooms,
     leaderboard,
+    alreadyVotedToday,
   });
 });
 
@@ -182,15 +194,47 @@ api.post('/vote', async (c) => {
     return c.json<ErrorResponse>({ status: 'error', message: 'Invalid room type' }, 400);
   }
 
-  // Snapshot the dominant stage BEFORE this vote, so we can tell if this
-  // vote causes a takeover (used for justEvolved + sabotage + comments).
+  const username = (await reddit.getCurrentUsername()) ?? 'anonymous';
+  const dayNumber = await getDayNumber(postId);
+
+  const alreadyVoted = await hasVotedToday(postId, username, dayNumber);
+  if (alreadyVoted) {
+    // Blocked — return current state unchanged, flagged so the client shows
+    // a friendly "come back tomorrow" message instead of counting the vote.
+    const roomCounts = await getRoomCounts(postId);
+    const { stage, level } = determineStage(roomCounts);
+    const feedKey = `voteFeed:${postId}`;
+    const rawFeed = await redis.get(feedKey);
+    const recentVotes: { username: string; roomType: string }[] = rawFeed
+      ? JSON.parse(rawFeed)
+      : [];
+    const roomsKey = `rooms:${postId}`;
+    const rawRooms = await redis.get(roomsKey);
+    const rooms: { type: RoomType; dayPicked: number }[] = rawRooms ? JSON.parse(rawRooms) : [];
+    const leaderboard = await getLeaderboard(postId);
+
+    return c.json<VoteResponse>({
+      type: 'vote',
+      postId,
+      roomCounts,
+      petStage: stage,
+      evolutionLevel: level,
+      justEvolved: false,
+      sabotaged: false,
+      dayNumber,
+      recentVotes,
+      rooms,
+      leaderboard,
+      alreadyVotedToday: true,
+    });
+  }
+
   const countsBefore = await getRoomCounts(postId);
   const { stage: stageBefore } = determineStage(countsBefore);
 
   const key = `roomCount:${postId}:${roomType}`;
   await redis.incrBy(key, 1);
-
-  const username = (await reddit.getCurrentUsername()) ?? 'anonymous';
+  await markVotedToday(postId, username, dayNumber);
 
   const feedKey = `voteFeed:${postId}`;
   const rawFeedBefore = await redis.get(feedKey);
@@ -204,7 +248,6 @@ api.post('/vote', async (c) => {
   const roomsKey = `rooms:${postId}`;
   const rawRooms = await redis.get(roomsKey);
   const rooms: { type: RoomType; dayPicked: number }[] = rawRooms ? JSON.parse(rawRooms) : [];
-  const dayNumber = await getDayNumber(postId);
   rooms.push({ type: roomType, dayPicked: dayNumber });
   await redis.set(roomsKey, JSON.stringify(rooms));
 
@@ -216,8 +259,6 @@ api.post('/vote', async (c) => {
   let finalStage: PetStage = naturalStage;
   let sabotaged = false;
 
-  // Sabotage only fires on an actual takeover moment: the dominant stage is
-  // about to change to something other than chaos, and chaos has votes.
   if (naturalStage !== stageBefore && naturalStage !== 'chaos') {
     const chaosCount = roomCounts['chaos'] ?? 0;
     if (chaosCount > 0) {
@@ -264,5 +305,6 @@ api.post('/vote', async (c) => {
     recentVotes,
     rooms,
     leaderboard,
+    alreadyVotedToday: false,
   });
 });
