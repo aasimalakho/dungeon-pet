@@ -297,8 +297,8 @@ export class Game extends Scene {
       const zone = this.add
         .zone(btnX, y, btnW, btnH)
         .setInteractive({ useHandCursor: true })
-        .on('pointerover', () => btnBg.setAlpha(1))
-        .on('pointerout', () => btnBg.setAlpha(0.9))
+        .on('pointerover', () => { if (!this.votingLocked) btnBg.setAlpha(1); })
+        .on('pointerout', () => { if (!this.votingLocked) btnBg.setAlpha(0.9); })
         .on('pointerdown', () => this.castVote(room.type));
       this.voteButtonZones.push(zone);
     });
