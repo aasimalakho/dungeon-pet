@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import * as Phaser from 'phaser';
 import { VoteResponse } from '../../shared/api';
+import { EVOLUTION_THRESHOLD, EVOLUTION_THRESHOLD_2 } from '../../shared/types';
 
 type RoomType = 'fire' | 'water' | 'trap' | 'treasure' | 'chaos';
 type PetStage = RoomType | 'baseline';
@@ -61,14 +62,14 @@ function mapSlotPosition(index: number): { x: number; y: number } {
   return { x: CENTER_X + MAP_COLS[actualCol], y };
 }
 
-// ===== Simple procedural sound (no audio files needed) =====
 class SoundManager {
   ctx: AudioContext | null = null;
 
   private ensureContext() {
     if (!this.ctx) {
       const AudioCtx =
-        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
     }
     if (this.ctx.state === 'suspended') {
@@ -92,7 +93,6 @@ class SoundManager {
       osc.start(startTime);
       osc.stop(startTime + duration);
     } catch (e) {
-      // Audio not available — fail silently, never block gameplay
       console.warn('Sound playback unavailable:', e);
     }
   }
@@ -111,6 +111,10 @@ class SoundManager {
     this.playTone(300, 0.1, 'sawtooth', 0);
     this.playTone(180, 0.2, 'sawtooth', 0.1);
   }
+
+  playBlocked() {
+    this.playTone(220, 0.15, 'square', 0, 0.05);
+  }
 }
 
 export class Game extends Scene {
@@ -124,7 +128,9 @@ export class Game extends Scene {
   roomsBuiltText: Phaser.GameObjects.Text;
   leaderboardTexts: Phaser.GameObjects.Text[] = [];
   countTexts: Partial<Record<RoomType, Phaser.GameObjects.Text>> = {};
+  progressBars: Partial<Record<RoomType, Phaser.GameObjects.Graphics>> = {};
   voteButtonZones: Phaser.GameObjects.Zone[] = [];
+  voteButtonBgs: Partial<Record<RoomType, Phaser.GameObjects.Graphics>> = {};
   feedTexts: Phaser.GameObjects.Text[] = [];
   mapTiles: Phaser.GameObjects.Container[] = [];
   pathLines: Phaser.GameObjects.Graphics;
@@ -133,6 +139,7 @@ export class Game extends Scene {
   petStage: PetStage = 'baseline';
   evolutionLevel: number = 0;
   voting: boolean = false;
+  votingLocked: boolean = false;
   totalRoomsBuilt: number = 0;
 
   constructor() {
@@ -147,7 +154,6 @@ export class Game extends Scene {
     grad.fillGradientStyle(0x1a1a30, 0x1a1a30, 0x0f0f1a, 0x0f0f1a, 1);
     grad.fillRect(0, 0, 720, 1280);
 
-    // ===== HEADER CARD =====
     roundedCard(this, CENTER_X, 130, 680, 200, 22);
 
     this.dayText = this.add
@@ -190,7 +196,6 @@ export class Game extends Scene {
       this.feedTexts.push(feedLine);
     }
 
-    // ===== DUNGEON MAP CARD =====
     roundedCard(this, CENTER_X, MAP_CENTER_Y, 680, 560, 26);
 
     this.roomsBuiltText = this.add
@@ -222,14 +227,12 @@ export class Game extends Scene {
       .image(startPos.x, startPos.y + 90, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
 
-    // Ambient particle loop — spawns small themed particles on filled tiles
     this.time.addEvent({
       delay: 700,
       loop: true,
       callback: () => this.spawnAmbientParticles(),
     });
 
-    // ===== LEADERBOARD CARD =====
     roundedCard(this, CENTER_X, 900, 680, 130, 20);
 
     this.add
@@ -251,7 +254,6 @@ export class Game extends Scene {
       this.leaderboardTexts.push(line);
     }
 
-    // ===== VOTE ROWS =====
     ROOM_CONFIG.forEach((room, i) => {
       const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
 
@@ -272,12 +274,17 @@ export class Game extends Scene {
         .setOrigin(0, 0.5);
       this.countTexts[room.type] = countText;
 
+      // Mini progress bar toward next threshold
+      const progressBar = this.add.graphics();
+      this.progressBars[room.type] = progressBar;
+
       const btnW = 90;
       const btnH = 30;
       const btnX = 630;
       const btnBg = this.add.graphics();
       btnBg.fillStyle(room.hex, 0.9);
       btnBg.fillRoundedRect(btnX - btnW / 2, y - btnH / 2, btnW, btnH, 15);
+      this.voteButtonBgs[room.type] = btnBg;
 
       this.add
         .text(btnX, y, 'VOTE', {
@@ -332,6 +339,10 @@ export class Game extends Scene {
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       const data = (await response.json()) as VoteResponse;
       this.applyState(data);
+      this.applyVoteLockState(data.alreadyVotedToday);
+      if (data.alreadyVotedToday) {
+        this.statusText.setText("You've already voted today — come back tomorrow!");
+      }
     } catch (error) {
       console.error('Failed to load game state:', error);
       this.statusText.setText('Failed to load — try refreshing.');
@@ -339,7 +350,13 @@ export class Game extends Scene {
   }
 
   async castVote(roomType: RoomType) {
-    if (this.voting) return;
+    if (this.voting || this.votingLocked) {
+      if (this.votingLocked) {
+        this.statusText.setText("You've already voted today — come back tomorrow!");
+        this.sound2.playBlocked();
+      }
+      return;
+    }
     this.voting = true;
     this.statusText.setText('Voting...');
     this.sound2.playVote();
@@ -353,8 +370,18 @@ export class Game extends Scene {
       if (!response.ok) throw new Error(`API error: ${response.status}`);
 
       const data = (await response.json()) as VoteResponse;
+
+      if (data.alreadyVotedToday) {
+        this.applyState(data);
+        this.applyVoteLockState(true);
+        this.statusText.setText("You've already voted today — come back tomorrow!");
+        this.sound2.playBlocked();
+        return;
+      }
+
       const previousLevel = this.evolutionLevel;
       this.applyState(data);
+      this.applyVoteLockState(true);
 
       if (data.sabotaged) {
         this.statusText.setText(`⚡ CHAOS SABOTAGE! Creature became ${data.petStage}!`);
@@ -369,7 +396,7 @@ export class Game extends Scene {
         this.playEvolutionEffect(true);
         this.sound2.playEvolution();
       } else {
-        this.statusText.setText(`Vote counted for ${roomType}!`);
+        this.statusText.setText(`Vote counted! Come back tomorrow for another.`);
       }
     } catch (error) {
       console.error('Failed to cast vote:', error);
@@ -377,6 +404,13 @@ export class Game extends Scene {
     } finally {
       this.voting = false;
     }
+  }
+
+  applyVoteLockState(locked: boolean) {
+    this.votingLocked = locked;
+    Object.values(this.voteButtonBgs).forEach((bg) => {
+      bg?.setAlpha(locked ? 0.35 : 0.9);
+    });
   }
 
   applyState(data: VoteResponse) {
@@ -547,6 +581,29 @@ export class Game extends Scene {
       if (text) {
         text.setText(`${room.label} (${count})`);
       }
+
+      // Update the mini progress bar toward the next threshold
+      const bar = this.progressBars[room.type];
+      if (bar) {
+        bar.clear();
+        const nextThreshold =
+          count < EVOLUTION_THRESHOLD ? EVOLUTION_THRESHOLD : EVOLUTION_THRESHOLD_2;
+        const prevThreshold = count < EVOLUTION_THRESHOLD ? 0 : EVOLUTION_THRESHOLD;
+        const progress = Math.min(
+          1,
+          (count - prevThreshold) / (nextThreshold - prevThreshold)
+        );
+
+        if (count < EVOLUTION_THRESHOLD_2) {
+          const barX = 200;
+          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 10;
+          const barW = 220;
+          bar.fillStyle(0x2a2a42, 1);
+          bar.fillRoundedRect(barX, barY, barW, 5, 3);
+          bar.fillStyle(room.hex, 0.9);
+          bar.fillRoundedRect(barX, barY, barW * progress, 5, 3);
+        }
+      }
     });
   }
 
@@ -560,4 +617,4 @@ export class Game extends Scene {
       }
     });
   }
-  }
+                  }
