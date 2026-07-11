@@ -33,4 +33,5 @@ export type VoteResponse = {
   recentVotes: { username: string; roomType: string }[];
   rooms: DungeonRoom[];
   leaderboard: LeaderboardEntry[];
+  alreadyVotedToday: boolean;
 };
