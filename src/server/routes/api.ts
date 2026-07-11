@@ -290,6 +290,30 @@ api.post('/vote', async (c) => {
     }
   }
 
+ // Daily summary comment — posts once per day, summarizing the day before
+  try {
+    const dayVotesKey = `dayVotes:${postId}:${dayNumber}`;
+    await redis.incrBy(dayVotesKey, 1);
+
+    const lastSummaryDayRaw = await redis.get(`lastSummaryDay:${postId}`);
+    const lastSummaryDay = lastSummaryDayRaw ? parseInt(lastSummaryDayRaw) : dayNumber;
+
+    if (dayNumber > lastSummaryDay) {
+      const prevDayVotesRaw = await redis.get(`dayVotes:${postId}:${lastSummaryDay}`);
+      const prevDayVotes = prevDayVotesRaw ? parseInt(prevDayVotesRaw) : 0;
+
+      const leadingType = ROOM_TYPES.reduce((best, t) =>
+        (roomCounts[t] ?? 0) > (roomCounts[best] ?? 0) ? t : best
+      );
+
+      const summaryText = `📜 Day ${lastSummaryDay} summary: ${prevDayVotes} vote${prevDayVotes === 1 ? '' : 's'} cast, ${leadingType} leading, ${rooms.length} room${rooms.length === 1 ? '' : 's'} in the dungeon so far.`;
+      await reddit.submitComment({ id: postId, text: summaryText });
+      await redis.set(`lastSummaryDay:${postId}`, dayNumber.toString());
+    }
+  } catch (err) {
+    console.error('Failed to post daily summary comment:', err);
+  }                                                                     
+
   const recentVotes = trimmedFeed;
   const leaderboard = await getLeaderboard(postId);
 
