@@ -25,7 +25,6 @@ const BG_COLOR = 0x0f0f1a;
 const CARD_COLOR = 0x1b1b2e;
 const CARD_BORDER = 0x2e2e48;
 
-// ===== Layout constants — rebalanced spacing =====
 const HERO_Y = 270;
 const HERO_H = 480;
 const PET_CENTER_Y = HERO_Y - 10;
@@ -40,8 +39,8 @@ const MAP_ROW_Y = [-55, 55];
 const LEADERBOARD_Y = 885;
 const LEADERBOARD_H = 110;
 
-const VOTE_ROW_START_Y = 981;
-const VOTE_ROW_SPACING = 52;
+const VOTE_ROW_START_Y = 985;
+const VOTE_ROW_SPACING = 58;
 
 const BASE_PET_SCALE = 0.85;
 const LEVEL2_PET_SCALE = 1.05;
@@ -176,11 +175,10 @@ export class Game extends Scene {
     grad.fillGradientStyle(0x1a1a30, 0x1a1a30, 0x0f0f1a, 0x0f0f1a, 1);
     grad.fillRect(0, 0, 720, 1280);
 
-    // ===== HERO CARD =====
     roundedCard(this, CENTER_X, HERO_Y, 680, HERO_H, 24);
 
     this.dayText = this.add
-      .text(CENTER_X, HERO_Y - HERO_H / 2 + 30, 'DAY 1', {
+      .text(CENTER_X, HERO_Y - HERO_H / 2 + 32, 'DAY 1', {
         fontFamily: 'Arial',
         fontSize: 14,
         color: '#9a9ac0',
@@ -190,14 +188,14 @@ export class Game extends Scene {
       .setDepth(DEPTH_TEXT);
 
     this.petStageText = this.add
-      .text(CENTER_X, HERO_Y - HERO_H / 2 + 64, 'Creature: baseline', {
+      .text(CENTER_X, HERO_Y - HERO_H / 2 + 66, 'Creature: baseline', {
         fontFamily: 'Arial Black',
         fontSize: 26,
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 4,
         align: 'center',
-        wordWrap: { width: 620 },
+        wordWrap: { width: 600 },
       })
       .setOrigin(0.5)
       .setDepth(DEPTH_TEXT);
@@ -211,30 +209,30 @@ export class Game extends Scene {
     this.petSprite.setDepth(DEPTH_PET);
 
     this.statusText = this.add
-      .text(CENTER_X, HERO_Y + HERO_H / 2 - 90, 'Vote to build the dungeon!', {
+      .text(CENTER_X, HERO_Y + HERO_H / 2 - 100, 'Vote to build the dungeon!', {
         fontFamily: 'Arial',
         fontSize: 16,
         color: '#e0e0f0',
         align: 'center',
-        wordWrap: { width: 600 },
+        wordWrap: { width: 580 },
       })
       .setOrigin(0.5)
       .setDepth(DEPTH_TEXT);
 
     this.stakesText = this.add
-      .text(CENTER_X, HERO_Y + HERO_H / 2 - 64, '', {
+      .text(CENTER_X, HERO_Y + HERO_H / 2 - 74, '', {
         fontFamily: 'Arial Black',
         fontSize: 15,
         color: '#ffd23f',
         align: 'center',
-        wordWrap: { width: 600 },
+        wordWrap: { width: 580 },
       })
       .setOrigin(0.5)
       .setDepth(DEPTH_TEXT);
 
     for (let i = 0; i < 2; i++) {
       const feedLine = this.add
-        .text(CENTER_X, HERO_Y + HERO_H / 2 - 40 + i * 20, '', {
+        .text(CENTER_X, HERO_Y + HERO_H / 2 - 50 + i * 20, '', {
           fontFamily: 'Arial',
           fontSize: 12,
           color: '#8888aa',
@@ -246,7 +244,6 @@ export class Game extends Scene {
 
     this.startIdleAnimation();
 
-    // ===== DUNGEON MAP CARD =====
     roundedCard(this, CENTER_X, MAP_Y, 680, MAP_H, 22);
 
     this.roomsBuiltText = this.add
@@ -281,7 +278,6 @@ export class Game extends Scene {
       callback: () => this.spawnAmbientParticles(),
     });
 
-    // ===== LEADERBOARD CARD =====
     roundedCard(this, CENTER_X, LEADERBOARD_Y, 680, LEADERBOARD_H, 18);
 
     this.add
@@ -305,21 +301,20 @@ export class Game extends Scene {
       this.leaderboardTexts.push(line);
     }
 
-    // ===== VOTE ROWS =====
     ROOM_CONFIG.forEach((room, i) => {
       const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
 
       const rowCard = this.add.graphics();
       rowCard.setDepth(DEPTH_CARD);
       rowCard.fillStyle(CARD_COLOR, 1);
-      rowCard.fillRoundedRect(20, y - 22, 680, 44, 12);
+      rowCard.fillRoundedRect(20, y - 24, 680, 48, 12);
       rowCard.lineStyle(1.5, room.hex, 0.5);
-      rowCard.strokeRoundedRect(20, y - 22, 680, 44, 12);
+      rowCard.strokeRoundedRect(20, y - 24, 680, 48, 12);
 
-      this.add.text(55, y - 9, room.icon, { fontSize: 18 }).setOrigin(0.5).setDepth(DEPTH_TEXT);
+      this.add.text(55, y - 11, room.icon, { fontSize: 18 }).setOrigin(0.5).setDepth(DEPTH_TEXT);
 
       const countText = this.add
-        .text(85, y - 9, `${room.label}`, {
+        .text(85, y - 11, `${room.label}`, {
           fontFamily: 'Arial Black',
           fontSize: 14,
           color: '#ffffff',
@@ -334,7 +329,7 @@ export class Game extends Scene {
 
       if (room.type === 'chaos') {
         this.chaosRiskText = this.add
-          .text(85, y + 5, '', {
+          .text(85, y + 9, '', {
             fontFamily: 'Arial',
             fontSize: 11,
             color: '#c86bff',
@@ -344,7 +339,7 @@ export class Game extends Scene {
       }
 
       const btnW = 90;
-      const btnH = 34;
+      const btnH = 36;
       const btnX = 630;
       const btnBg = this.add.graphics();
       btnBg.setDepth(DEPTH_TEXT);
@@ -542,8 +537,8 @@ export class Game extends Scene {
     if (!this.heroBg) {
       this.heroBg = this.add
         .image(CENTER_X, HERO_Y, textureKey)
-        .setDisplaySize(660, HERO_H - 20)
-        .setAlpha(0.3);
+        .setDisplaySize(560, 380)
+        .setAlpha(0.28);
       this.heroBg.setDepth(DEPTH_ROOM_BG);
     } else {
       this.heroBg.setTexture(textureKey);
@@ -655,8 +650,8 @@ export class Game extends Scene {
       if (entry) {
         text.setText(`${medals[i]} u/${entry.username} — ${entry.votes} votes`);
       } else {
-        text.setText('');
-      }
+        text.setText(
+       }
     });
   }
 
@@ -745,7 +740,7 @@ export class Game extends Scene {
 
         if (count < EVOLUTION_THRESHOLD_2) {
           const barX = 200;
-          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 17;
+          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 19;
           const barW = 220;
           bar.fillStyle(0x2a2a42, 1);
           bar.fillRoundedRect(barX, barY, barW, 5, 3);
