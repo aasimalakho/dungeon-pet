@@ -25,27 +25,27 @@ const BG_COLOR = 0x0f0f1a;
 const CARD_COLOR = 0x1b1b2e;
 const CARD_BORDER = 0x2e2e48;
 
-// ===== Layout constants (recalculated with margins that actually fit) =====
-const HERO_Y = 280;
-const HERO_H = 520;
-const PET_CENTER_Y = HERO_Y - 20;
+// ===== Layout constants — rebalanced spacing =====
+const HERO_Y = 270;
+const HERO_H = 480;
+const PET_CENTER_Y = HERO_Y - 10;
+const PET_GLOW_RADIUS = 110;
 
-const MAP_Y = 700;
+const MAP_Y = 670;
 const MAP_H = 280;
 const MAP_ROOM_COUNT = 8;
 const MAP_COLS = [-200, -67, 67, 200];
 const MAP_ROW_Y = [-55, 55];
 
-const LEADERBOARD_Y = 915;
+const LEADERBOARD_Y = 885;
 const LEADERBOARD_H = 110;
 
-const VOTE_ROW_START_Y = 1013;
-const VOTE_ROW_SPACING = 50;
+const VOTE_ROW_START_Y = 981;
+const VOTE_ROW_SPACING = 52;
 
 const BASE_PET_SCALE = 0.85;
 const LEVEL2_PET_SCALE = 1.05;
 
-// Depth layers — explicit, so stacking order is never ambiguous
 const DEPTH_CARD = 0;
 const DEPTH_ROOM_BG = 1;
 const DEPTH_GLOW = 2;
@@ -180,7 +180,7 @@ export class Game extends Scene {
     roundedCard(this, CENTER_X, HERO_Y, 680, HERO_H, 24);
 
     this.dayText = this.add
-      .text(CENTER_X, HERO_Y - HERO_H / 2 + 24, 'DAY 1', {
+      .text(CENTER_X, HERO_Y - HERO_H / 2 + 30, 'DAY 1', {
         fontFamily: 'Arial',
         fontSize: 14,
         color: '#9a9ac0',
@@ -190,7 +190,7 @@ export class Game extends Scene {
       .setDepth(DEPTH_TEXT);
 
     this.petStageText = this.add
-      .text(CENTER_X, HERO_Y - HERO_H / 2 + 58, 'Creature: baseline', {
+      .text(CENTER_X, HERO_Y - HERO_H / 2 + 64, 'Creature: baseline', {
         fontFamily: 'Arial Black',
         fontSize: 26,
         color: '#ffffff',
@@ -202,7 +202,7 @@ export class Game extends Scene {
       .setOrigin(0.5)
       .setDepth(DEPTH_TEXT);
 
-    this.petGlow = this.add.circle(CENTER_X, PET_CENTER_Y, 130, 0xff6b4a, 0.18);
+    this.petGlow = this.add.circle(CENTER_X, PET_CENTER_Y, PET_GLOW_RADIUS, 0xff6b4a, 0.18);
     this.petGlow.setDepth(DEPTH_GLOW);
 
     this.petSprite = this.add
@@ -211,7 +211,7 @@ export class Game extends Scene {
     this.petSprite.setDepth(DEPTH_PET);
 
     this.statusText = this.add
-      .text(CENTER_X, HERO_Y + HERO_H / 2 - 96, 'Vote to build the dungeon!', {
+      .text(CENTER_X, HERO_Y + HERO_H / 2 - 90, 'Vote to build the dungeon!', {
         fontFamily: 'Arial',
         fontSize: 16,
         color: '#e0e0f0',
@@ -222,7 +222,7 @@ export class Game extends Scene {
       .setDepth(DEPTH_TEXT);
 
     this.stakesText = this.add
-      .text(CENTER_X, HERO_Y + HERO_H / 2 - 70, '', {
+      .text(CENTER_X, HERO_Y + HERO_H / 2 - 64, '', {
         fontFamily: 'Arial Black',
         fontSize: 15,
         color: '#ffd23f',
@@ -234,7 +234,7 @@ export class Game extends Scene {
 
     for (let i = 0; i < 2; i++) {
       const feedLine = this.add
-        .text(CENTER_X, HERO_Y + HERO_H / 2 - 46 + i * 20, '', {
+        .text(CENTER_X, HERO_Y + HERO_H / 2 - 40 + i * 20, '', {
           fontFamily: 'Arial',
           fontSize: 12,
           color: '#8888aa',
@@ -312,14 +312,14 @@ export class Game extends Scene {
       const rowCard = this.add.graphics();
       rowCard.setDepth(DEPTH_CARD);
       rowCard.fillStyle(CARD_COLOR, 1);
-      rowCard.fillRoundedRect(20, y - 21, 680, 42, 12);
+      rowCard.fillRoundedRect(20, y - 22, 680, 44, 12);
       rowCard.lineStyle(1.5, room.hex, 0.5);
-      rowCard.strokeRoundedRect(20, y - 21, 680, 42, 12);
+      rowCard.strokeRoundedRect(20, y - 22, 680, 44, 12);
 
-      this.add.text(55, y, room.icon, { fontSize: 18 }).setOrigin(0.5).setDepth(DEPTH_TEXT);
+      this.add.text(55, y - 9, room.icon, { fontSize: 18 }).setOrigin(0.5).setDepth(DEPTH_TEXT);
 
       const countText = this.add
-        .text(85, y, `${room.label}`, {
+        .text(85, y - 9, `${room.label}`, {
           fontFamily: 'Arial Black',
           fontSize: 14,
           color: '#ffffff',
@@ -334,7 +334,7 @@ export class Game extends Scene {
 
       if (room.type === 'chaos') {
         this.chaosRiskText = this.add
-          .text(85, y + 13, '', {
+          .text(85, y + 5, '', {
             fontFamily: 'Arial',
             fontSize: 11,
             color: '#c86bff',
@@ -344,7 +344,7 @@ export class Game extends Scene {
       }
 
       const btnW = 90;
-      const btnH = 30;
+      const btnH = 34;
       const btnX = 630;
       const btnBg = this.add.graphics();
       btnBg.setDepth(DEPTH_TEXT);
@@ -745,7 +745,7 @@ export class Game extends Scene {
 
         if (count < EVOLUTION_THRESHOLD_2) {
           const barX = 200;
-          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 11;
+          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 17;
           const barW = 220;
           bar.fillStyle(0x2a2a42, 1);
           bar.fillRoundedRect(barX, barY, barW, 5, 3);
@@ -765,5 +765,5 @@ export class Game extends Scene {
         text.setText('');
       }
      });
+    }
    }
- }
