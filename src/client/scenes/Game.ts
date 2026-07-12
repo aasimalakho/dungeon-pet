@@ -650,9 +650,9 @@ export class Game extends Scene {
       if (entry) {
         text.setText(`${medals[i]} u/${entry.username} — ${entry.votes} votes`);
       } else {
-        text.setText(
-       }
-    });
+        text.setText
+      }
+     });
   }
 
   playEvolutionEffect(isLevel2: boolean) {
@@ -761,4 +761,4 @@ export class Game extends Scene {
       }
      });
     }
-   }
+  }
