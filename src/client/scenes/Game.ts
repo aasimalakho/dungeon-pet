@@ -765,5 +765,5 @@ export class Game extends Scene {
         text.setText('');
       }
      });
-   }
- }                                        }
+    }
+   }                                        
