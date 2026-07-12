@@ -26,12 +26,12 @@ const CARD_COLOR = 0x1b1b2e;
 const CARD_BORDER = 0x2e2e48;
 
 // ===== Layout constants (recalculated with margins that actually fit) =====
-const HERO_Y = 330;
-const HERO_H = 560;
-const PET_CENTER_Y = HERO_Y + 10;
+const HERO_Y = 280;
+const HERO_H = 520;
+const PET_CENTER_Y = HERO_Y - 20;
 
-const MAP_Y = 820;
-const MAP_H = 320;
+const MAP_Y = 700;
+const MAP_H = 280;
 const MAP_ROOM_COUNT = 8;
 const MAP_COLS = [-200, -67, 67, 200];
 const MAP_ROW_Y = [-55, 55];
@@ -180,7 +180,7 @@ export class Game extends Scene {
     roundedCard(this, CENTER_X, HERO_Y, 680, HERO_H, 24);
 
     this.dayText = this.add
-      .text(CENTER_X, HERO_Y - HERO_H / 2 + 36, 'DAY 1', {
+      .text(CENTER_X, HERO_Y - HERO_H / 2 + 24, 'DAY 1', {
         fontFamily: 'Arial',
         fontSize: 14,
         color: '#9a9ac0',
@@ -190,7 +190,7 @@ export class Game extends Scene {
       .setDepth(DEPTH_TEXT);
 
     this.petStageText = this.add
-      .text(CENTER_X, HERO_Y - HERO_H / 2 + 78, 'Creature: baseline', {
+      .text(CENTER_X, HERO_Y - HERO_H / 2 + 58, 'Creature: baseline', {
         fontFamily: 'Arial Black',
         fontSize: 26,
         color: '#ffffff',
@@ -211,7 +211,7 @@ export class Game extends Scene {
     this.petSprite.setDepth(DEPTH_PET);
 
     this.statusText = this.add
-      .text(CENTER_X, HERO_Y + HERO_H / 2 - 84, 'Vote to build the dungeon!', {
+      .text(CENTER_X, HERO_Y + HERO_H / 2 - 96, 'Vote to build the dungeon!', {
         fontFamily: 'Arial',
         fontSize: 16,
         color: '#e0e0f0',
@@ -222,7 +222,7 @@ export class Game extends Scene {
       .setDepth(DEPTH_TEXT);
 
     this.stakesText = this.add
-      .text(CENTER_X, HERO_Y + HERO_H / 2 - 56, '', {
+      .text(CENTER_X, HERO_Y + HERO_H / 2 - 70, '', {
         fontFamily: 'Arial Black',
         fontSize: 15,
         color: '#ffd23f',
@@ -234,7 +234,7 @@ export class Game extends Scene {
 
     for (let i = 0; i < 2; i++) {
       const feedLine = this.add
-        .text(CENTER_X, HERO_Y + HERO_H / 2 - 32 + i * 20, '', {
+        .text(CENTER_X, HERO_Y + HERO_H / 2 - 46 + i * 20, '', {
           fontFamily: 'Arial',
           fontSize: 12,
           color: '#8888aa',
@@ -250,7 +250,7 @@ export class Game extends Scene {
     roundedCard(this, CENTER_X, MAP_Y, 680, MAP_H, 22);
 
     this.roomsBuiltText = this.add
-      .text(CENTER_X, MAP_Y - MAP_H / 2 + 30, 'DUNGEON MAP  •  ROOMS BUILT: 0', {
+      .text(CENTER_X, MAP_Y - MAP_H / 2 + 22, 'DUNGEON MAP  •  ROOMS BUILT: 0', {
         fontFamily: 'Arial',
         fontSize: 14,
         color: '#7a7aa0',
@@ -334,7 +334,7 @@ export class Game extends Scene {
 
       if (room.type === 'chaos') {
         this.chaosRiskText = this.add
-          .text(85, y + 18, '', {
+          .text(85, y + 13, '', {
             fontFamily: 'Arial',
             fontSize: 11,
             color: '#c86bff',
@@ -765,5 +765,5 @@ export class Game extends Scene {
         text.setText('');
       }
      });
-    }
-   }                                        
+   }
+ }
