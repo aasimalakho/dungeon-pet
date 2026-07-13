@@ -286,7 +286,7 @@ export class Game extends Scene {
         fontSize: 15,
         color: '#ffd23f',
       })
-      .setOrigin(0.5)
+      .setOrigin(0.5, 0.5)
       .setDepth(DEPTH_TEXT);
 
     for (let i = 0; i < 3; i++) {
