@@ -281,7 +281,7 @@ export class Game extends Scene {
     roundedCard(this, CENTER_X, LEADERBOARD_Y, 680, LEADERBOARD_H, 18);
 
     this.add
-      .text(CENTER_X, LEADERBOARD_Y - LEADERBOARD_H / 2 + 30, '🏆  TOP VOTERS', {
+      .text(CENTER_X, LEADERBOARD_Y - LEADERBOARD_H / 2 + 25, '🏆  TOP VOTERS', {
         fontFamily: 'Arial Black',
         fontSize: 15,
         color: '#ffd23f',
