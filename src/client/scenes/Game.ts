@@ -39,8 +39,8 @@ const MAP_ROW_Y = [-55, 55];
 const LEADERBOARD_Y = 885;
 const LEADERBOARD_H = 110;
 
-const VOTE_ROW_START_Y = 985;
-const VOTE_ROW_SPACING = 58;
+const VOTE_ROW_START_Y = 981;
+const VOTE_ROW_SPACING = 52;
 
 const BASE_PET_SCALE = 0.85;
 const LEVEL2_PET_SCALE = 1.05;
@@ -301,20 +301,21 @@ export class Game extends Scene {
       this.leaderboardTexts.push(line);
     }
 
+    // ===== VOTE ROWS — single-line, centered, chaos risk inline =====
     ROOM_CONFIG.forEach((room, i) => {
       const y = VOTE_ROW_START_Y + i * VOTE_ROW_SPACING;
 
       const rowCard = this.add.graphics();
       rowCard.setDepth(DEPTH_CARD);
       rowCard.fillStyle(CARD_COLOR, 1);
-      rowCard.fillRoundedRect(20, y - 24, 680, 48, 12);
+      rowCard.fillRoundedRect(20, y - 22, 680, 44, 12);
       rowCard.lineStyle(1.5, room.hex, 0.5);
-      rowCard.strokeRoundedRect(20, y - 24, 680, 48, 12);
+      rowCard.strokeRoundedRect(20, y - 22, 680, 44, 12);
 
-      this.add.text(55, y - 11, room.icon, { fontSize: 18 }).setOrigin(0.5).setDepth(DEPTH_TEXT);
+      this.add.text(55, y, room.icon, { fontSize: 18 }).setOrigin(0.5).setDepth(DEPTH_TEXT);
 
       const countText = this.add
-        .text(85, y - 11, `${room.label}`, {
+        .text(85, y, `${room.label}`, {
           fontFamily: 'Arial Black',
           fontSize: 14,
           color: '#ffffff',
@@ -323,23 +324,23 @@ export class Game extends Scene {
         .setDepth(DEPTH_TEXT);
       this.countTexts[room.type] = countText;
 
-      const progressBar = this.add.graphics();
-      progressBar.setDepth(DEPTH_TEXT);
-      this.progressBars[room.type] = progressBar;
-
       if (room.type === 'chaos') {
         this.chaosRiskText = this.add
-          .text(85, y + 9, '', {
+          .text(190, y, '', {
             fontFamily: 'Arial',
-            fontSize: 11,
+            fontSize: 12,
             color: '#c86bff',
           })
           .setOrigin(0, 0.5)
           .setDepth(DEPTH_TEXT);
       }
 
+      const progressBar = this.add.graphics();
+      progressBar.setDepth(DEPTH_TEXT);
+      this.progressBars[room.type] = progressBar;
+
       const btnW = 90;
-      const btnH = 36;
+      const btnH = 34;
       const btnX = 630;
       const btnBg = this.add.graphics();
       btnBg.setDepth(DEPTH_TEXT);
@@ -650,9 +651,9 @@ export class Game extends Scene {
       if (entry) {
         text.setText(`${medals[i]} u/${entry.username} — ${entry.votes} votes`);
       } else {
-        text.setText
+        text.setText('');
       }
-     });
+    });
   }
 
   playEvolutionEffect(isLevel2: boolean) {
@@ -720,7 +721,7 @@ export class Game extends Scene {
     this.stakesText.setText(this.computeStakes());
 
     if (this.chaosRiskText) {
-      this.chaosRiskText.setText(`Chaos risk: ${this.computeChaosRisk()}%`);
+      this.chaosRiskText.setText(`(Risk: ${this.computeChaosRisk()}%)`);
     }
 
     ROOM_CONFIG.forEach((room) => {
@@ -739,9 +740,9 @@ export class Game extends Scene {
         const progress = Math.min(1, (count - prevThreshold) / (nextThreshold - prevThreshold));
 
         if (count < EVOLUTION_THRESHOLD_2) {
-          const barX = 200;
-          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING + 19;
-          const barW = 220;
+          const barX = 300;
+          const barY = VOTE_ROW_START_Y + ROOM_CONFIG.indexOf(room) * VOTE_ROW_SPACING - 2;
+          const barW = 120;
           bar.fillStyle(0x2a2a42, 1);
           bar.fillRoundedRect(barX, barY, barW, 5, 3);
           bar.fillStyle(room.hex, 0.9);
