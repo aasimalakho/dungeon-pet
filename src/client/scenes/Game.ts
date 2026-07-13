@@ -207,6 +207,8 @@ export class Game extends Scene {
       .image(CENTER_X, PET_CENTER_Y, 'pet-baseline')
       .setScale(BASE_PET_SCALE);
     this.petSprite.setDepth(DEPTH_PET);
+    this.petSprite.setVisible(false);
+    this.petGlow.setVisible(false);
 
     this.statusText = this.add
       .text(CENTER_X, HERO_Y + HERO_H / 2 - 100, 'Vote to build the dungeon!', {
@@ -281,7 +283,7 @@ export class Game extends Scene {
     roundedCard(this, CENTER_X, LEADERBOARD_Y, 680, LEADERBOARD_H, 18);
 
     this.add
-      .text(CENTER_X, LEADERBOARD_Y - LEADERBOARD_H / 2 + 25, '🏆  TOP VOTERS', {
+      .text(CENTER_X, LEADERBOARD_Y - LEADERBOARD_H / 2 + 34, '🏆  TOP VOTERS', {
         fontFamily: 'Arial Black',
         fontSize: 15,
         color: '#ffd23f',
@@ -291,7 +293,7 @@ export class Game extends Scene {
 
     for (let i = 0; i < 3; i++) {
       const line = this.add
-        .text(CENTER_X, LEADERBOARD_Y - LEADERBOARD_H / 2 + 50 + i * 19, '', {
+        .text(CENTER_X, LEADERBOARD_Y - LEADERBOARD_H / 2 + 62 + i * 18, '', {
           fontFamily: 'Arial',
           fontSize: 13,
           color: '#b8b8d8',
@@ -508,6 +510,8 @@ export class Game extends Scene {
   }
 
   applyState(data: VoteResponse) {
+    this.petSprite.setVisible(true);
+    this.petGlow.setVisible(true);
     this.roomCounts = data.roomCounts;
     this.petStage = data.petStage as PetStage;
     this.evolutionLevel = data.evolutionLevel;
