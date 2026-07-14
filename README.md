@@ -12,7 +12,7 @@ Unlike traditional games that can be completed in a single session, **Dungeon Pe
 
 - **App Listing:** https://developers.reddit.com/apps/dungeon-pet
 - **Demo Post:** https://www.reddit.com/r/dungeon_pet_dev/?playtest=dungeon-pet
-- **Demo Video:** [add your video link here]
+- **Demo Video:** https://youtu.be/Ul-HFj04gkg?si=FTG5WvqWSYhRv8CC
 
  --- 
 
