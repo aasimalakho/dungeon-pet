@@ -66,7 +66,7 @@ async function getDayNumber(postId: string): Promise<number> {
 async function hasVotedToday(postId: string, username: string, dayNumber: number): Promise<boolean> {
   const key = `votedDay:${postId}:${username}`;
   const lastVotedDay = await redis.get(key);
-  return lastVotedDay !== null && parseInt(lastVotedDay) === dayNumber;
+  return lastVotedDay != null && parseInt(lastVotedDay, 10) === dayNumber;
 }
 
 async function markVotedToday(postId: string, username: string, dayNumber: number) {
