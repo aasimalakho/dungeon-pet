@@ -1,8 +1,12 @@
 # Dungeon Pet: The Community Creature
 
-### A Living Dungeon Built by Reddit, One Vote at a Time
+> **Build a living dungeon together — one vote per person, per day.**
 
-Built for Reddit's Games with a Hook Hackathon 2026
+Dungeon Pet is a social Reddit game built with **Reddit Devvit**, **Phaser**, and **TypeScript**, where the entire community collaborates to grow a shared dungeon. Every vote permanently shapes the dungeon, influences the evolution of a mysterious creature, and becomes part of the game's history.
+
+Unlike traditional games that can be completed in a single session, **Dungeon Pet is designed to bring players back every day.** With only one vote allowed per user each day, every decision matters.
+
+---
 
 ## Demo
 
@@ -10,88 +14,209 @@ Built for Reddit's Games with a Hook Hackathon 2026
 - **Demo Post:** https://www.reddit.com/r/dungeon_pet_dev/?playtest=dungeon-pet
 - **Demo Video:** [add your video link here]
 
----
+ --- 
 
-# Project Description
+# 🎮 Live Gameplay
 
-Every Reddit community has a creature, and that creature is theirs to shape.
+Every day, players can cast **one vote** for one of five room types:
 
-**Dungeon Pet** is a Devvit game where redditors collectively vote on which room to add next to a shared dungeon map. As the dungeon grows, room by room, a resident creature explores it, and its final form is determined entirely by what the community chose to build. Fire rooms hatch a fire-breathing companion. Water rooms raise something aquatic. And if enough chaos energy builds up, the outcome can be sabotaged into something nobody voted for at all.
+- 🔥 Fire
+- 💧 Water
+- ⚠️ Trap
+- 💰 Treasure
+- 🌀 Chaos
 
-No two communities will grow the same dungeon, or raise the same creature.
+The winning room type expands the shared dungeon map.
 
----
+As the dungeon grows, the community slowly transforms the dungeon creature through multiple evolution stages.
 
-# The Problem
+Nobody can control the outcome alone.
 
-Reddit's feed rewards content that's easy to glance at once and scroll past. Most community games either require a login-and-forget daily puzzle, or they're single-player experiences dressed up with a leaderboard bolted on.
-
-What's harder to build is a game where:
-
-- Every visitor's action visibly changes something the whole community shares
-- Progress is permanent and cumulative, not reset every session
-- There's a real reason to come back and see what happened since you left
+The entire subreddit builds the world together.
 
 ---
 
-# Our Solution
+# ✨ What Makes Dungeon Pet Different?
 
-Dungeon Pet turns every vote into a piece of shared, permanent world-state.
+Most Reddit games end after a single interaction.
 
-For every visit, the game:
+Dungeon Pet creates a reason to return every single day.
 
-- Shows the current dungeon map, built entirely from past community votes
-- Displays a live feed of who voted for what, in real time
-- Tracks a leaderboard of the community's most active dungeon-builders
-- Evolves a shared creature through two stages, with a distinct sprite for each element the dungeon leans into
-- Introduces genuine unpredictability through a Chaos mechanic that can sabotage the community's expected outcome
-- Automatically posts a comment to the subreddit whenever the creature evolves, turning gameplay moments into visible community history
+### Daily Community Decisions
 
-The creature is never something one person controls. It's a running record of collective choice.
+Each Reddit account receives only **one vote per day**, making every vote meaningful.
 
----
+### Shared Persistent World
 
-# Devvit Components Used
+The dungeon never resets.
 
-Dungeon Pet is built entirely on Reddit's Developer Platform:
+Every vote permanently adds another room to the community dungeon.
 
-- **Devvit Web** — client/server app architecture running natively in a Reddit post
-- **Phaser 3** — all game rendering, animation, and interaction
-- **Redis (via Devvit)** — persistent shared game state across all visitors to a post
-- **Reddit API (via Devvit)** — live username attribution for votes, and automatic comment posting on evolution events
-- **Hono** — backend API routing
+### Creature Evolution
 
----
+The dungeon pet evolves based on the room type that dominates community voting.
 
-# How It Works
+Players slowly discover entirely new creature forms as the dungeon develops.
 
-1. **Vote** — Tap a room type (Fire, Water, Trap, Treasure, or Chaos) to add it to the dungeon
-2. **Watch it build** — The new room appears on the dungeon map with a build animation, connected to the path already explored
-3. **Evolution** — Once a room type reaches enough votes, the creature evolves to reflect it, with a full transformation animation and particle burst
-4. **Ancient Form** — Enough continued votes push the creature into a second, more powerful evolution stage
-5. **Chaos Sabotage** — At the moment of any evolution, accumulated Chaos votes carry a chance to override the outcome entirely, keeping the result genuinely uncertain even for the community that voted
-6. **Return tomorrow** — The dungeon persists. Nothing resets. Every session builds on the last.
+### Hidden Chaos System
 
----
+Chaos is different.
 
-# Tech Stack
+Even when Chaos doesn't win the vote, it has a hidden sabotage mechanic that can unexpectedly flip the day's outcome.
 
-- **Frontend:** Phaser 3, TypeScript, Vite
-- **Backend:** Devvit Web, Hono, Node.js
-- **Persistence:** Redis (via `@devvit/web/server`)
-- **Platform:** Reddit Developer Platform (Devvit)
+Nobody knows when Chaos will strike.
+
+This creates suspense for every daily result.
+
+### Living Reddit Story
+
+Every important event automatically becomes part of the Reddit thread:
+
+- Daily summaries
+- Creature evolutions
+- Dungeon progress
+- Major milestones
+
+The thread itself becomes a living story created by the community.
 
 ---
 
-# What Makes This Reddit-y
+# 🎯 Why Players Keep Coming Back
 
-- **Community-authored outcomes** — no single player determines the creature's fate
-- **Live usernames** — every vote is attributed, turning the feed into a visible record of who shaped the dungeon
-- **Comments as gameplay** — evolutions are posted directly to the subreddit, folding game milestones into the actual discussion thread
-- **Persistent shared state** — the dungeon belongs to the subreddit, not to any one visitor's session
+Dungeon Pet is built around long-term engagement.
+
+Instead of finishing everything in one session, players naturally return because:
+
+- 🗳️ Only one vote is allowed each day.
+- 🏰 The dungeon keeps growing even while they're away.
+- 🐣 Everyone wants to witness the next creature evolution.
+- ⚡ Chaos might unexpectedly change the outcome.
+- 📖 Every day becomes another chapter in the dungeon's story.
+
+This creates a genuine daily gameplay loop rather than a one-time experience.
 
 ---
 
-# Credits
+# 🚀 Features
 
-Built solo for Reddit's Games with a Hook Hackathon, using the official Devvit Phaser template as a starting scaffold.
+- 🎮 Built with Reddit Devvit
+- ⚡ Phaser-powered game interface
+- 🗳️ One vote per Reddit user each day
+- 🏰 Shared persistent dungeon map
+- 🐉 Multi-stage creature evolution
+- 🌀 Hidden Chaos sabotage mechanic
+- 🏆 Live contributor leaderboard
+- 💬 Automatic Reddit event comments
+- ✨ Particle effects and animations
+- 🎨 Custom pixel artwork
+- 🔊 Programmatically generated sound effects (no external audio files)
+- 📱 Mobile-friendly UI
+
+---
+
+# 🛠 Tech Stack
+
+- **Reddit Devvit**
+- **TypeScript**
+- **Phaser**
+- **Vite**
+- **Node.js**
+
+---
+
+### Watch the Dungeon Grow
+
+Every winning vote permanently expands the shared dungeon map.
+
+The dungeon belongs to the entire community.
+
+---
+
+### Evolve the Creature
+
+As the dungeon changes, so does the mysterious pet.
+
+Different voting patterns unlock different creature evolutions.
+
+---
+
+### Beware of Chaos
+
+Chaos isn't just another room type.
+
+It carries a hidden sabotage chance that can overturn the community's expectations at any moment.
+
+---
+
+# 💡 Built For Reddit
+
+Dungeon Pet embraces everything that makes Reddit communities fun:
+
+- Community collaboration
+- Long-term participation
+- Daily discussion
+- Shared progression
+- Emergent storytelling
+
+The more people participate, the more interesting the game becomes.
+
+---
+
+# 🚀 Getting Started
+
+Install dependencies
+
+```bash
+npm install
+```
+
+Run locally
+
+```bash
+npm run dev
+```
+
+Build
+
+```bash
+npm run build
+```
+
+Deploy
+
+```bash
+npm run deploy
+```
+
+---
+
+
+# 🎨 Assets
+
+Dungeon Pet features custom-built visuals including:
+
+- Creature artwork
+- Dungeon tiles
+- UI components
+- Particle effects
+- Animations
+
+All sound effects are generated in code without external audio files.
+
+---
+
+# 🏆 Hackathon Project
+
+Dungeon Pet was created for Reddit's **Games with a Hook Hackathon**.
+
+The project explores how simple daily interactions can grow into a persistent community-driven game where every player helps shape the world.
+
+---
+
+# ❤️ Thanks
+
+Thanks to the Reddit Devvit team for creating an amazing platform that enables developers to build interactive social experiences directly inside Reddit.
+
+---
+
+## ⭐ If you enjoyed Dungeon Pet, consider starring this repository!
